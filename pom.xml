@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.vitorbetmann</groupId>
+    <artifactId>schoolapi</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>SchoolAPI (FIAP ADJT Fase 4)</name>
+
+    <!-- Step 1 creates these modules. Until then, keep this block commented out. -->
+    <!--
+    <modules>
+        <module>shared</module>
+        <module>functions/receber-avaliacao</module>
+        <module>functions/notificar-urgencia</module>
+        <module>functions/gerar-relatorio</module>
+    </modules>
+    -->
+
+    <properties>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Claude: on Step 1, bump these to the latest stable versions from Maven Central. -->
+        <aws.sdk.version>2.29.0</aws.sdk.version>
+        <aws.lambda.core.version>1.2.3</aws.lambda.core.version>
+        <aws.lambda.events.version>3.14.0</aws.lambda.events.version>
+        <powertools.version>1.18.0</powertools.version>
+        <jackson.version>2.18.1</jackson.version>
+        <junit.version>5.11.3</junit.version>
+        <assertj.version>3.26.3</assertj.version>
+        <mockito.version>5.14.2</mockito.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws.sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-lambda-java-core</artifactId>
+                <version>${aws.lambda.core.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-lambda-java-events</artifactId>
+                <version>${aws.lambda.events.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>software.amazon.lambda</groupId>
+                <artifactId>powertools-logging</artifactId>
+                <version>${powertools.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>software.amazon.lambda</groupId>
+                <artifactId>powertools-metrics</artifactId>
+                <version>${powertools.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.assertj</groupId>
+                <artifactId>assertj-core</artifactId>
+                <version>${assertj.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-junit-jupiter</artifactId>
+                <version>${mockito.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.5.2</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>3.6.0</version>
+                </plugin>
+                <!-- Powertools annotations (@Logging, @Metrics) need AspectJ weaving. -->
+                <plugin>
+                    <groupId>dev.aspectj</groupId>
+                    <artifactId>aspectj-maven-plugin</artifactId>
+                    <version>1.14</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>

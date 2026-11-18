@@ -1,0 +1,10 @@
+target/
+.aws-sam/
+*.iml
+.idea/
+.vscode/
+.DS_Store
+.env
+*.log
+samconfig.local.toml
+.claude/settings.local.json
