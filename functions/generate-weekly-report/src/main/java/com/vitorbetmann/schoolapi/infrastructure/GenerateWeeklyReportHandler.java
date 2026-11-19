@@ -52,12 +52,14 @@ public class GenerateWeeklyReportHandler implements RequestStreamHandler {
 
     private void generate(InputStream input, OutputStream output) {
         try {
+            var startedAt = System.nanoTime();
             var mapper = JsonMapper.instance();
             var request = mapper.readValue(input, GenerateWeeklyReportRequest.class);
             var referenceDate = request.referenceDateOr(this.clock);
             var response = GenerateWeeklyReportResponse.fromDomain(this.generateWeeklyReport.execute(referenceDate));
-            LOGGER.info("Weekly report generated referenceDate={} isoWeek={} feedbackCount={} location={}",
-                    referenceDate, response.isoWeek(), response.feedbackCount(), response.location());
+            LOGGER.info("Weekly report generated referenceDate={} isoWeek={} feedbackCount={} location={} durationMs={}",
+                    referenceDate, response.isoWeek(), response.feedbackCount(), response.location(),
+                    (System.nanoTime() - startedAt) / 1_000_000);
             this.metrics.addMetric("ReportGenerated", 1, MetricUnit.COUNT);
             mapper.writeValue(output, response);
         } catch (IOException exception) {
