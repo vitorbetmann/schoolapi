@@ -1,0 +1,29 @@
+{
+  "Records": [
+    {
+      "eventID": "1",
+      "eventName": "INSERT",
+      "eventVersion": "1.1",
+      "eventSource": "aws:dynamodb",
+      "awsRegion": "us-east-1",
+      "dynamodb": {
+        "ApproximateCreationDateTime": 1795527900,
+        "Keys": {
+          "id": { "S": "3f6c1b2e-8d4a-4c7e-9b1f-2a5d7e9c0b11" }
+        },
+        "NewImage": {
+          "id": { "S": "3f6c1b2e-8d4a-4c7e-9b1f-2a5d7e9c0b11" },
+          "description": { "S": "A aula ficou confusa e os exemplos não funcionaram." },
+          "score": { "N": "2" },
+          "urgency": { "S": "CRITICAL" },
+          "submittedAt": { "S": "2026-11-18T13:45:00Z" },
+          "day": { "S": "2026-11-18" }
+        },
+        "SequenceNumber": "111",
+        "SizeBytes": 220,
+        "StreamViewType": "NEW_IMAGE"
+      },
+      "eventSourceARN": "arn:aws:dynamodb:us-east-1:123456789012:table/Feedbacks/stream/2026-11-18T00:00:00.000"
+    }
+  ]
+}

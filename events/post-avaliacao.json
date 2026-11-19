@@ -1,0 +1,32 @@
+{
+  "resource": "/avaliacao",
+  "path": "/avaliacao",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json",
+    "x-api-key": "local-test-key"
+  },
+  "multiValueHeaders": {
+    "Content-Type": ["application/json"],
+    "x-api-key": ["local-test-key"]
+  },
+  "queryStringParameters": null,
+  "pathParameters": null,
+  "stageVariables": null,
+  "requestContext": {
+    "resourcePath": "/avaliacao",
+    "httpMethod": "POST",
+    "path": "/prod/avaliacao",
+    "stage": "prod",
+    "requestId": "c6af9ac6-7b61-11e6-9a41-93e8deadbeef",
+    "requestTimeEpoch": 1795527900000,
+    "accountId": "123456789012",
+    "apiId": "abc123defg",
+    "identity": {
+      "sourceIp": "203.0.113.10",
+      "apiKey": "local-test-key"
+    }
+  },
+  "body": "{\"descricao\":\"A aula ficou confusa e os exemplos não funcionaram.\",\"nota\":2}",
+  "isBase64Encoded": false
+}
