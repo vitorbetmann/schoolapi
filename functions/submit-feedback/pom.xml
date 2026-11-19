@@ -32,6 +32,10 @@
             <groupId>software.amazon.lambda</groupId>
             <artifactId>powertools-logging-log4j</artifactId>
         </dependency>
+        <dependency>
+            <groupId>software.amazon.lambda</groupId>
+            <artifactId>powertools-metrics</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

@@ -64,6 +64,26 @@ Then add people to the groups (console, or `aws identitystore create-group-membe
 > Learner Lab, IAM roles, Identity Center and CloudTrail can't be created: with `LambdaRoleArn` set, every function
 > uses `LabRole` and the trail is skipped. The generated roles above are the intended production setup (ADR-008, ADR-016).
 
+## Monitoring
+
+Covers the requirement *"aplicação monitorada"*. Everything is in `infra/template.yaml`.
+
+| What | How |
+|---|---|
+| Structured logs | Powertools JSON logs per function (request id, cold start, API correlation id), KMS-encrypted, 14 days |
+| API access logs | JSON access log per request in `/aws/apigateway/schoolapi-access` |
+| Business metrics | Powertools Metrics (EMF), namespace `SchoolAPI`: `FeedbackReceived` (by `urgency`), `NotificationSent`, `ReportGenerated` |
+| Alarms → email | `schoolapi-ops-alerts` SNS topic (KMS-encrypted, TLS-only); one alarm per function on `Errors > 0`, API `5XXError > 0`, DLQ messages `> 0`. Each alarm also emails when it goes back to OK |
+| Dashboard | `schoolapi-operations`: invocations, errors and duration per function, API requests/4XX/5XX, feedbacks by urgency, notices sent, reports generated, DLQ depth, alarm status |
+
+Open the dashboard with the `DashboardUrl` stack output. To see an alarm fire, make the report function fail on purpose:
+
+```bash
+aws lambda invoke --function-name schoolapi-generate-weekly-report --cli-binary-format raw-in-base64-out --payload '{"referenceDate":"invalid"}' /dev/null
+```
+
+Within about 5 minutes `schoolapi-generate-weekly-report-errors` goes to ALARM and the admin gets an email; it returns to OK (another email) after the next quiet period.
+
 ---
 
 ## 🇧🇷Descrição em Português
@@ -125,3 +145,23 @@ Depois adicione as pessoas aos grupos (console, ou `aws identitystore create-gro
 > Academy Learner Lab não é possível criar roles IAM, Identity Center nem CloudTrail: com `LambdaRoleArn` definido,
 > todas as funções usam a `LabRole` e o trail é omitido. As roles geradas acima são a configuração pensada para
 > produção (ADR-008, ADR-016).
+
+## Monitoramento
+
+Atende ao requisito *"aplicação monitorada"*. Tudo está em `infra/template.yaml`.
+
+| O quê | Como |
+|---|---|
+| Logs estruturados | Logs JSON do Powertools por função (request id, cold start, correlation id da API), criptografados com KMS, 14 dias |
+| Access logs da API | Um log JSON por requisição em `/aws/apigateway/schoolapi-access` |
+| Métricas de negócio | Powertools Metrics (EMF), namespace `SchoolAPI`: `FeedbackReceived` (por `urgency`), `NotificationSent`, `ReportGenerated` |
+| Alarmes → e-mail | Tópico SNS `schoolapi-ops-alerts` (criptografado com KMS, somente TLS); um alarme por função em `Errors > 0`, `5XXError > 0` da API, mensagens na DLQ `> 0`. Cada alarme também envia e-mail quando volta para OK |
+| Dashboard | `schoolapi-operations`: invocações, erros e duração por função, requisições/4XX/5XX da API, feedbacks por urgência, avisos enviados, relatórios gerados, profundidade da DLQ, status dos alarmes |
+
+Abra o dashboard pelo output `DashboardUrl` da stack. Para ver um alarme disparar, faça a função de relatório falhar de propósito:
+
+```bash
+aws lambda invoke --function-name schoolapi-generate-weekly-report --cli-binary-format raw-in-base64-out --payload '{"referenceDate":"invalid"}' /dev/null
+```
+
+Em cerca de 5 minutos `schoolapi-generate-weekly-report-errors` vai para ALARM e o administrador recebe um e-mail; ele volta para OK (outro e-mail) após o próximo período sem erros.

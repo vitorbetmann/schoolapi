@@ -17,6 +17,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.lambda.powertools.logging.CorrelationIdPaths;
 import software.amazon.lambda.powertools.logging.PowertoolsLogging;
+import software.amazon.lambda.powertools.metrics.Metrics;
+import software.amazon.lambda.powertools.metrics.MetricsFactory;
+import software.amazon.lambda.powertools.metrics.model.MetricUnit;
 
 import java.io.UncheckedIOException;
 import java.time.Clock;
@@ -32,19 +35,27 @@ public class SubmitFeedbackHandler
     private static final Map<String, String> PROBLEM_HEADERS = Map.of("Content-Type", "application/problem+json");
 
     private final SubmitFeedback submitFeedback;
+    private final Metrics metrics;
 
     public SubmitFeedbackHandler() {
-        this(Wiring.SUBMIT_FEEDBACK);
+        this(Wiring.SUBMIT_FEEDBACK, MetricsFactory.getMetricsInstance());
     }
 
-    SubmitFeedbackHandler(SubmitFeedback submitFeedback) {
+    SubmitFeedbackHandler(SubmitFeedback submitFeedback, Metrics metrics) {
         this.submitFeedback = submitFeedback;
+        this.metrics = metrics;
     }
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent event, Context context) {
         return PowertoolsLogging.withLogging(context, CorrelationIdPaths.API_GATEWAY_REST, event,
-                () -> submit(event));
+                () -> {
+                    try {
+                        return submit(event);
+                    } finally {
+                        this.metrics.flush();
+                    }
+                });
     }
 
     private APIGatewayProxyResponseEvent submit(APIGatewayProxyRequestEvent event) {
@@ -53,6 +64,8 @@ public class SubmitFeedbackHandler
             var feedback = this.submitFeedback.execute(request.description(), request.score());
             LOGGER.info("Feedback stored id={} score={} urgency={}",
                     feedback.id(), feedback.score(), feedback.urgency());
+            this.metrics.addDimension("urgency", feedback.urgency().name());
+            this.metrics.addMetric("FeedbackReceived", 1, MetricUnit.COUNT);
             return respond(201, JSON_HEADERS, SubmitFeedbackResponse.fromDomain(feedback));
         } catch (InvalidFeedbackException exception) {
             LOGGER.info("Feedback rejected violations={}", exception.violations());

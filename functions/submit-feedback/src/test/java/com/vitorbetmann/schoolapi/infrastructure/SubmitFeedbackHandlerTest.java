@@ -10,6 +10,8 @@ import com.vitorbetmann.schoolapi.infrastructure.json.JsonMapper;
 import com.vitorbetmann.schoolapi.usecases.SubmitFeedback;
 import com.vitorbetmann.schoolapi.usecases.interfaces.FeedbackGateway;
 import org.junit.jupiter.api.Test;
+import software.amazon.lambda.powertools.metrics.Metrics;
+import software.amazon.lambda.powertools.metrics.model.MetricUnit;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -21,7 +23,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 class SubmitFeedbackHandlerTest {
 
@@ -29,8 +36,9 @@ class SubmitFeedbackHandlerTest {
 
     private final RecordingFeedbackGateway feedbackGateway = new RecordingFeedbackGateway();
     private final Clock clock = Clock.fixed(Instant.parse("2026-11-18T13:45:00Z"), ZoneOffset.UTC);
+    private final Metrics metrics = mock(Metrics.class);
     private final SubmitFeedbackHandler handler =
-            new SubmitFeedbackHandler(new SubmitFeedback(this.feedbackGateway, this.clock));
+            new SubmitFeedbackHandler(new SubmitFeedback(this.feedbackGateway, this.clock), this.metrics);
     private final Context context = mock(Context.class);
 
     @Test
@@ -44,6 +52,23 @@ class SubmitFeedbackHandlerTest {
         assertThat(body.get("urgency").asText()).isEqualTo("CRITICAL");
         assertThat(body.get("submittedAt").asText()).isEqualTo("2026-11-18T13:45:00Z");
         assertThat(body.properties()).hasSize(3);
+    }
+
+    @Test
+    void countsReceivedFeedbackByUrgency() throws IOException {
+        this.handler.handleRequest(sampleEvent(), this.context);
+
+        verify(this.metrics).addDimension("urgency", "CRITICAL");
+        verify(this.metrics).addMetric("FeedbackReceived", 1, MetricUnit.COUNT);
+        verify(this.metrics).flush();
+    }
+
+    @Test
+    void doesNotCountRejectedFeedback() throws IOException {
+        this.handler.handleRequest(withBody("{\"descricao\":\"\",\"nota\":11}"), this.context);
+
+        verify(this.metrics, never()).addMetric(anyString(), anyDouble(), any(MetricUnit.class));
+        verify(this.metrics).flush();
     }
 
     @Test

@@ -32,6 +32,10 @@
             <groupId>software.amazon.lambda</groupId>
             <artifactId>powertools-logging-log4j</artifactId>
         </dependency>
+        <dependency>
+            <groupId>software.amazon.lambda</groupId>
+            <artifactId>powertools-metrics</artifactId>
+        </dependency>
         <!-- Same lightweight HTTP client as shared (no Netty/Apache) to keep cold starts low. -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>

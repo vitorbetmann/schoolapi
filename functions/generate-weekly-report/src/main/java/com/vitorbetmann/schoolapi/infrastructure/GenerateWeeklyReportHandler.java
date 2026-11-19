@@ -10,6 +10,9 @@ import com.vitorbetmann.schoolapi.usecases.GenerateWeeklyReport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.lambda.powertools.logging.PowertoolsLogging;
+import software.amazon.lambda.powertools.metrics.Metrics;
+import software.amazon.lambda.powertools.metrics.MetricsFactory;
+import software.amazon.lambda.powertools.metrics.model.MetricUnit;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,21 +26,27 @@ public class GenerateWeeklyReportHandler implements RequestStreamHandler {
 
     private final GenerateWeeklyReport generateWeeklyReport;
     private final Clock clock;
+    private final Metrics metrics;
 
     public GenerateWeeklyReportHandler() {
-        this(Wiring.GENERATE_WEEKLY_REPORT, Clock.systemUTC());
+        this(Wiring.GENERATE_WEEKLY_REPORT, Clock.systemUTC(), MetricsFactory.getMetricsInstance());
     }
 
-    GenerateWeeklyReportHandler(GenerateWeeklyReport generateWeeklyReport, Clock clock) {
+    GenerateWeeklyReportHandler(GenerateWeeklyReport generateWeeklyReport, Clock clock, Metrics metrics) {
         this.generateWeeklyReport = generateWeeklyReport;
         this.clock = clock;
+        this.metrics = metrics;
     }
 
     @Override
     public void handleRequest(InputStream input, OutputStream output, Context context) {
         PowertoolsLogging.withLogging(context, () -> {
-            generate(input, output);
-            return null;
+            try {
+                generate(input, output);
+                return null;
+            } finally {
+                this.metrics.flush();
+            }
         });
     }
 
@@ -49,6 +58,7 @@ public class GenerateWeeklyReportHandler implements RequestStreamHandler {
             var response = GenerateWeeklyReportResponse.fromDomain(this.generateWeeklyReport.execute(referenceDate));
             LOGGER.info("Weekly report generated referenceDate={} isoWeek={} feedbackCount={} location={}",
                     referenceDate, response.isoWeek(), response.feedbackCount(), response.location());
+            this.metrics.addMetric("ReportGenerated", 1, MetricUnit.COUNT);
             mapper.writeValue(output, response);
         } catch (IOException exception) {
             throw new UncheckedIOException("Weekly report request could not be read or answered", exception);

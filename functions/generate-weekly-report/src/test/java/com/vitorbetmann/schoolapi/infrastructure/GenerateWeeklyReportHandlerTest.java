@@ -11,6 +11,8 @@ import com.vitorbetmann.schoolapi.usecases.interfaces.FeedbackGateway;
 import com.vitorbetmann.schoolapi.usecases.interfaces.NotificationGateway;
 import com.vitorbetmann.schoolapi.usecases.interfaces.ReportStorageGateway;
 import org.junit.jupiter.api.Test;
+import software.amazon.lambda.powertools.metrics.Metrics;
+import software.amazon.lambda.powertools.metrics.model.MetricUnit;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -28,7 +30,12 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 class GenerateWeeklyReportHandlerTest {
 
@@ -40,8 +47,10 @@ class GenerateWeeklyReportHandlerTest {
     private final List<LocalDate> queriedDays = new ArrayList<>();
     private final List<WeeklyReport> storedReports = new ArrayList<>();
     private final List<String> subjects = new ArrayList<>();
+    private final Metrics metrics = mock(Metrics.class);
     private final GenerateWeeklyReportHandler handler = new GenerateWeeklyReportHandler(
-            new GenerateWeeklyReport(feedbackGateway(), storageGateway(), notificationGateway()), CLOCK);
+            new GenerateWeeklyReport(feedbackGateway(), storageGateway(), notificationGateway()), CLOCK,
+            this.metrics);
     private final Context context = mock(Context.class);
 
     @Test
@@ -53,6 +62,8 @@ class GenerateWeeklyReportHandlerTest {
         assertThat(response).isEqualTo(
                 new GenerateWeeklyReportResponse("2026-W46", "s3://reports/reports/2026/W46.json", 1));
         assertThat(this.subjects).containsExactly("Relatório semanal de feedbacks — 2026-W46");
+        verify(this.metrics).addMetric("ReportGenerated", 1, MetricUnit.COUNT);
+        verify(this.metrics).flush();
     }
 
     @Test
@@ -70,6 +81,8 @@ class GenerateWeeklyReportHandlerTest {
 
         assertThatThrownBy(() -> invoke(input)).isInstanceOf(RuntimeException.class);
         assertThat(this.storedReports).isEmpty();
+        verify(this.metrics, never()).addMetric(anyString(), anyDouble(), any(MetricUnit.class));
+        verify(this.metrics).flush();
     }
 
     private GenerateWeeklyReportResponse invoke(InputStream input) throws IOException {

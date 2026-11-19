@@ -6,20 +6,24 @@ import com.amazonaws.services.lambda.runtime.tests.EventLoader;
 import com.vitorbetmann.schoolapi.usecases.NotifyCriticalFeedback;
 import com.vitorbetmann.schoolapi.usecases.interfaces.NotificationGateway;
 import org.junit.jupiter.api.Test;
+import software.amazon.lambda.powertools.metrics.Metrics;
+import software.amazon.lambda.powertools.metrics.model.MetricUnit;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 class NotifyCriticalFeedbackHandlerTest {
 
     private static final String STREAM_EVENT = "../../events/dynamodb-stream-insert.json";
 
     private final RecordingNotificationGateway notificationGateway = new RecordingNotificationGateway();
+    private final Metrics metrics = mock(Metrics.class);
     private final NotifyCriticalFeedbackHandler handler =
-            new NotifyCriticalFeedbackHandler(new NotifyCriticalFeedback(this.notificationGateway));
+            new NotifyCriticalFeedbackHandler(new NotifyCriticalFeedback(this.notificationGateway), this.metrics);
     private final Context context = mock(Context.class);
 
     @Test
@@ -35,6 +39,14 @@ class NotifyCriticalFeedbackHandlerTest {
     }
 
     @Test
+    void countsSentNotices() {
+        this.handler.handleRequest(sampleEvent(), this.context);
+
+        verify(this.metrics).addMetric("NotificationSent", 1, MetricUnit.COUNT);
+        verify(this.metrics).flush();
+    }
+
+    @Test
     void reportsFailedRecordBySequenceNumber() {
         this.notificationGateway.failing = true;
 
@@ -42,6 +54,7 @@ class NotifyCriticalFeedbackHandlerTest {
 
         assertThat(response.getBatchItemFailures()).singleElement()
                 .satisfies(failure -> assertThat(failure.getItemIdentifier()).isEqualTo("111"));
+        verify(this.metrics).addMetric("NotificationSent", 0, MetricUnit.COUNT);
     }
 
     @Test

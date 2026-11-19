@@ -36,6 +36,7 @@ Globals:
       Variables:
         POWERTOOLS_SERVICE_NAME: schoolapi
         POWERTOOLS_LOG_LEVEL: INFO
+        POWERTOOLS_METRICS_NAMESPACE: SchoolAPI
 
 Resources:
   FeedbackKey:
@@ -67,6 +68,14 @@ Resources:
             Condition:
               ArnLike:
                 kms:EncryptionContext:aws:logs:arn: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
+          - Sid: AllowCloudWatchAlarmsToPublishToEncryptedTopic
+            Effect: Allow
+            Principal:
+              Service: cloudwatch.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey*
+            Resource: "*"
       Tags:
         - Key: Project
           Value: schoolapi
@@ -510,6 +519,229 @@ Resources:
             RetryPolicy:
               MaximumRetryAttempts: 2
 
+  OpsAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${AWS::StackName}-ops-alerts
+      KmsMasterKeyId: !Ref FeedbackKey
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  OpsAlertsTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref OpsAlertsTopic
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowStackAlarms
+            Effect: Allow
+            Principal:
+              Service: cloudwatch.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref OpsAlertsTopic
+            Condition:
+              ArnLike:
+                aws:SourceArn: !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:${AWS::StackName}-*
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: sns:Publish
+            Resource: !Ref OpsAlertsTopic
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  OpsAlertsAdminSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref OpsAlertsTopic
+      Protocol: email
+      Endpoint: !Ref AdminEmail
+
+  SubmitFeedbackErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-submit-feedback-errors
+      AlarmDescription: submit-feedback function failed at least once in 5 minutes.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref SubmitFeedbackFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OpsAlertsTopic
+      OKActions:
+        - !Ref OpsAlertsTopic
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  NotifyCriticalFeedbackErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-notify-critical-feedback-errors
+      AlarmDescription: notify-critical-feedback function failed at least once in 5 minutes.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref NotifyCriticalFeedbackFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OpsAlertsTopic
+      OKActions:
+        - !Ref OpsAlertsTopic
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  GenerateWeeklyReportErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-generate-weekly-report-errors
+      AlarmDescription: generate-weekly-report function failed at least once in 5 minutes.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref GenerateWeeklyReportFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OpsAlertsTopic
+      OKActions:
+        - !Ref OpsAlertsTopic
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  Api5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-api-5xx
+      AlarmDescription: POST /avaliacao returned a 5XX at least once in 5 minutes.
+      Namespace: AWS/ApiGateway
+      MetricName: 5XXError
+      Dimensions:
+        - Name: ApiName
+          Value: !Sub ${AWS::StackName}-api
+        - Name: Stage
+          Value: !Ref Stage
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OpsAlertsTopic
+      OKActions:
+        - !Ref OpsAlertsTopic
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  NotifyCriticalFeedbackDlqAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-notify-critical-feedback-dlq
+      AlarmDescription: A critical-feedback notice gave up after retries and is waiting in the DLQ.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt NotifyCriticalFeedbackDlq.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OpsAlertsTopic
+      OKActions:
+        - !Ref OpsAlertsTopic
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  OperationsDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub ${AWS::StackName}-operations
+      DashboardBody: !Sub
+        - |
+          {
+            "widgets": [
+              {"type": "metric", "x": 0, "y": 0, "width": 8, "height": 6, "properties": {
+                "title": "Lambda invocations", "region": "${AWS::Region}", "stat": "Sum", "period": 300, "view": "timeSeries",
+                "metrics": [
+                  ["AWS/Lambda", "Invocations", "FunctionName", "${SubmitFeedbackFunction}", {"label": "submit-feedback"}],
+                  ["AWS/Lambda", "Invocations", "FunctionName", "${NotifyCriticalFeedbackFunction}", {"label": "notify-critical-feedback"}],
+                  ["AWS/Lambda", "Invocations", "FunctionName", "${GenerateWeeklyReportFunction}", {"label": "generate-weekly-report"}]
+                ]}},
+              {"type": "metric", "x": 8, "y": 0, "width": 8, "height": 6, "properties": {
+                "title": "Lambda errors", "region": "${AWS::Region}", "stat": "Sum", "period": 300, "view": "timeSeries",
+                "metrics": [
+                  ["AWS/Lambda", "Errors", "FunctionName", "${SubmitFeedbackFunction}", {"label": "submit-feedback"}],
+                  ["AWS/Lambda", "Errors", "FunctionName", "${NotifyCriticalFeedbackFunction}", {"label": "notify-critical-feedback"}],
+                  ["AWS/Lambda", "Errors", "FunctionName", "${GenerateWeeklyReportFunction}", {"label": "generate-weekly-report"}]
+                ]}},
+              {"type": "metric", "x": 16, "y": 0, "width": 8, "height": 6, "properties": {
+                "title": "Lambda duration (ms, average)", "region": "${AWS::Region}", "stat": "Average", "period": 300, "view": "timeSeries",
+                "metrics": [
+                  ["AWS/Lambda", "Duration", "FunctionName", "${SubmitFeedbackFunction}", {"label": "submit-feedback"}],
+                  ["AWS/Lambda", "Duration", "FunctionName", "${NotifyCriticalFeedbackFunction}", {"label": "notify-critical-feedback"}],
+                  ["AWS/Lambda", "Duration", "FunctionName", "${GenerateWeeklyReportFunction}", {"label": "generate-weekly-report"}]
+                ]}},
+              {"type": "metric", "x": 0, "y": 6, "width": 8, "height": 6, "properties": {
+                "title": "API requests and errors", "region": "${AWS::Region}", "stat": "Sum", "period": 300, "view": "timeSeries",
+                "metrics": [
+                  ["AWS/ApiGateway", "Count", "ApiName", "${ApiName}", "Stage", "${Stage}", {"label": "requests"}],
+                  ["AWS/ApiGateway", "4XXError", "ApiName", "${ApiName}", "Stage", "${Stage}", {"label": "4XX"}],
+                  ["AWS/ApiGateway", "5XXError", "ApiName", "${ApiName}", "Stage", "${Stage}", {"label": "5XX"}]
+                ]}},
+              {"type": "metric", "x": 8, "y": 6, "width": 8, "height": 6, "properties": {
+                "title": "Feedbacks received by urgency", "region": "${AWS::Region}", "stat": "Sum", "period": 300, "view": "timeSeries", "stacked": true,
+                "metrics": [
+                  ["SchoolAPI", "FeedbackReceived", "urgency", "CRITICAL", {"label": "CRITICAL"}],
+                  ["SchoolAPI", "FeedbackReceived", "urgency", "MEDIUM", {"label": "MEDIUM"}],
+                  ["SchoolAPI", "FeedbackReceived", "urgency", "LOW", {"label": "LOW"}]
+                ]}},
+              {"type": "metric", "x": 16, "y": 6, "width": 8, "height": 6, "properties": {
+                "title": "Notices sent, reports generated, DLQ depth", "region": "${AWS::Region}", "period": 300, "view": "timeSeries",
+                "metrics": [
+                  ["SchoolAPI", "NotificationSent", "Service", "schoolapi", {"stat": "Sum", "label": "critical notices sent"}],
+                  ["SchoolAPI", "ReportGenerated", "Service", "schoolapi", {"stat": "Sum", "label": "weekly reports generated"}],
+                  ["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "${DlqName}", {"stat": "Maximum", "label": "DLQ messages"}]
+                ]}},
+              {"type": "alarm", "x": 0, "y": 12, "width": 24, "height": 3, "properties": {
+                "title": "Alarms",
+                "alarms": ["${SubmitFeedbackErrorsAlarm.Arn}", "${NotifyCriticalFeedbackErrorsAlarm.Arn}", "${GenerateWeeklyReportErrorsAlarm.Arn}", "${Api5xxAlarm.Arn}", "${NotifyCriticalFeedbackDlqAlarm.Arn}"]
+                }}
+            ]
+          }
+        - ApiName: !Sub ${AWS::StackName}-api
+          DlqName: !GetAtt NotifyCriticalFeedbackDlq.QueueName
+
   AuditTrailBucket:
     Type: AWS::S3::Bucket
     Condition: CreateRoles
@@ -608,6 +840,12 @@ Outputs:
   GenerateWeeklyReportFunctionName:
     Description: Function to invoke for an on-demand report (scripts/invoke-report.sh).
     Value: !Ref GenerateWeeklyReportFunction
+  OpsAlertsTopicArn:
+    Description: SNS topic for CloudWatch alarm notifications.
+    Value: !Ref OpsAlertsTopic
+  DashboardUrl:
+    Description: CloudWatch operations dashboard.
+    Value: !Sub https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards/dashboard/${OperationsDashboard}
   AuditTrailBucketName:
     Condition: CreateRoles
     Description: S3 bucket holding the CloudTrail management-event logs (retained if the stack is deleted).

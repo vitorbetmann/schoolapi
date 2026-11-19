@@ -11,7 +11,7 @@ Add a one-line note per step (date, what changed, anything left over).
 - [x] Step 5 — Function 2: notify-critical-feedback
 - [x] Step 6 — Function 3: generate-weekly-report
 - [x] Step 7 — Security and access governance
-- [ ] Step 8 — Monitoring
+- [x] Step 8 — Monitoring
 - [ ] Step 9 — Automated deploy (CD)
 - [ ] Step 10 — README (English + Portuguese)
 
@@ -92,3 +92,13 @@ Add a one-line note per step (date, what changed, anything left over).
 - 2026-11-19 · Fix: `seed-feedbacks.sh` picks each comment from a list for the score's urgency (critical / medium / low),
   so a positive comment is never marked critical. Same scores, days and counts (3/10/17). Checked with a fake `aws`
   under macOS bash 3.2.
+- 2026-11-19 · Step 8: Powertools Metrics without AspectJ (`MetricsFactory` instance injected into each handler, flushed
+  in `finally`): `FeedbackReceived` (dimension `urgency`), `NotificationSent` (count actually sent), `ReportGenerated`;
+  namespace `SchoolAPI` via `POWERTOOLS_METRICS_NAMESPACE`. Template: KMS-encrypted TLS-only `schoolapi-ops-alerts` topic
+  (publish allowed only for `cloudwatch.amazonaws.com` from `alarm:schoolapi-*`) + email subscription, key policy
+  statement letting CloudWatch use the CMK for that topic, 5 alarms (`Errors > 0` per function, API `5XXError`, DLQ
+  messages; alarm + OK actions), dashboard `schoolapi-operations` (7 widgets) and `DashboardUrl` output. README Monitoring
+  section in both halves. 77 tests green, lint clean. Deployed: smoke test and report OK, all metrics listed; forced
+  failure (`referenceDate: invalid`) → `schoolapi-generate-weekly-report-errors` in ALARM within ~1 minute, SNS action
+  succeeded. Learned: Powertools `addDimension` adds a separate dimension set (`[Service]`, `[urgency]`), so the
+  dashboard queries `FeedbackReceived` by `urgency` alone. New alarms also email once on their first move to OK.
