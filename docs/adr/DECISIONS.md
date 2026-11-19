@@ -146,3 +146,14 @@ and a function module can't depend on another. One mapping keeps the attribute n
 **Consequences:** `shared` depends on the DynamoDB Enhanced Client (with the lightweight URL-connection
 HTTP client). Entities and use cases still have no AWS imports. Each function's IAM policy still limits
 what it can do with the table (write-only vs read-only).
+
+## ADR-015 — Build: Maven builds the Lambda JARs, SAM skips building
+**Decision:** `mvn verify` builds each function's shaded JAR. In `infra/template.yaml` each function's
+`CodeUri` points at that JAR and has `Metadata: SkipBuild: True`, so `sam build` only copies the
+template and `sam deploy` uploads the JARs. The flow is `mvn -q verify` → `sam build` → `sam deploy`.
+**Why:** SAM's Maven builder copies each function folder to a scratch directory, where the parent POM
+(`../../pom.xml`) and the `shared` sibling module don't resolve. Building from the root with Maven keeps one
+build (the same one the tests run), and the shaded JAR keeps the Log4j2 plugin cache that Powertools needs.
+**Alternatives:** SAM's built-in Maven builder (breaks on the multi-module layout without installing
+`shared` into `~/.m2` first); `BuildMethod: makefile` (an extra Makefile per function to explain).
+**Consequences:** `sam build`/`sam deploy` need a prior `mvn package`/`verify`, so CI runs Maven first.

@@ -74,9 +74,11 @@ Rubric: `[COD]` `[FUNC]`
   - `FeedbackApi` (`AWS::Serverless::Api`): stage `prod`, `ApiKeyRequired: true`, usage plan
     (rate 10 rps, burst 20, quota 5000/day), access logs to CloudWatch, request validator +
     JSON-schema model for the body.
-  - `SubmitFeedbackFunction`: event `POST /avaliacao`, policy `DynamoDBWritePolicy` (only).
+  - `SubmitFeedbackFunction`: event `POST /avaliacao`, policy `DynamoDBWritePolicy` + `kms:Decrypt` on
+    `FeedbackKey` via DynamoDB only (needed by the customer-managed key).
   - Explicit `AWS::Logs::LogGroup` per function, 14-day retention.
-  - Parameters: `AdminEmail`, `LambdaRoleArn` (optional, for Learner Lab), `Stage`.
+  - Parameters: `LambdaRoleArn` (optional, for Learner Lab), `Stage`. (`AdminEmail` is added in Step 5,
+    where SNS uses it.)
   - Outputs: API URL, API key id, table name.
 - `infra/samconfig.toml` with stack name `schoolapi`.
 - `scripts/smoke-test.sh` (curl with `x-api-key`): one valid, one invalid, one critical.

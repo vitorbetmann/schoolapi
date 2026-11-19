@@ -1,0 +1,248 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: SchoolAPI - serverless course feedback platform (FIAP ADJT Phase 4 Tech Challenge)
+
+Parameters:
+  Stage:
+    Type: String
+    Default: prod
+    AllowedPattern: "[a-z0-9]+"
+    Description: API Gateway stage name.
+  LambdaRoleArn:
+    Type: String
+    Default: ""
+    Description: Optional existing role for every function (AWS Academy Learner Lab, ADR-008). Leave empty to create least-privilege roles.
+
+Conditions:
+  UseLabRole: !Not [!Equals [!Ref LambdaRoleArn, ""]]
+  CreateRoles: !Equals [!Ref LambdaRoleArn, ""]
+
+Globals:
+  Function:
+    Runtime: java21
+    Architectures:
+      - arm64
+    MemorySize: 512
+    Timeout: 15
+    PropagateTags: true
+    Tags:
+      Project: schoolapi
+    Environment:
+      Variables:
+        POWERTOOLS_SERVICE_NAME: schoolapi
+        POWERTOOLS_LOG_LEVEL: INFO
+
+Resources:
+  FeedbackKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: Encrypts SchoolAPI data at rest (DynamoDB, logs, SNS, S3).
+      EnableKeyRotation: true
+      PendingWindowInDays: 7
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowAccountAdministration
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: "*"
+          - Sid: AllowCloudWatchLogs
+            Effect: Allow
+            Principal:
+              Service: !Sub logs.${AWS::Region}.amazonaws.com
+            Action:
+              - kms:Encrypt*
+              - kms:Decrypt*
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:Describe*
+            Resource: "*"
+            Condition:
+              ArnLike:
+                kms:EncryptionContext:aws:logs:arn: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  FeedbackKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub alias/${AWS::StackName}
+      TargetKeyId: !Ref FeedbackKey
+
+  FeedbacksTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-feedbacks
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: day
+          AttributeType: S
+        - AttributeName: submittedAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: by-day
+          KeySchema:
+            - AttributeName: day
+              KeyType: HASH
+            - AttributeName: submittedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: !Ref FeedbackKey
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  ApiGatewayCloudWatchRole:
+    Type: AWS::IAM::Role
+    Condition: CreateRoles
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  ApiGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !If [UseLabRole, !Ref LambdaRoleArn, !GetAtt ApiGatewayCloudWatchRole.Arn]
+
+  FeedbackApiAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/apigateway/${AWS::StackName}-access
+      RetentionInDays: 14
+      KmsKeyId: !GetAtt FeedbackKey.Arn
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  FeedbackApi:
+    Type: AWS::Serverless::Api
+    DependsOn: ApiGatewayAccount
+    Properties:
+      Name: !Sub ${AWS::StackName}-api
+      StageName: !Ref Stage
+      Auth:
+        ApiKeyRequired: true
+        UsagePlan:
+          CreateUsagePlan: PER_API
+          Description: Throttling and daily quota for student submissions.
+          Throttle:
+            RateLimit: 10
+            BurstLimit: 20
+          Quota:
+            Limit: 5000
+            Period: DAY
+      AccessLogSetting:
+        DestinationArn: !GetAtt FeedbackApiAccessLogGroup.Arn
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","method":"$context.httpMethod","path":"$context.resourcePath","status":"$context.status","latencyMs":"$context.responseLatency","apiKeyId":"$context.identity.apiKeyId","error":"$context.error.message"}'
+      Models:
+        SubmitFeedbackRequest:
+          type: object
+          required:
+            - descricao
+            - nota
+          additionalProperties: false
+          properties:
+            descricao:
+              type: string
+              minLength: 1
+              maxLength: 1000
+              pattern: \S
+            nota:
+              type: integer
+              minimum: 0
+              maximum: 10
+      GatewayResponses:
+        BAD_REQUEST_BODY:
+          StatusCode: 400
+          ResponseParameters:
+            Headers:
+              Content-Type: "'application/problem+json'"
+          ResponseTemplates:
+            application/json: '{"errors": ["$context.error.validationErrorString"]}'
+      Tags:
+        Project: schoolapi
+
+  SubmitFeedbackLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-submit-feedback
+      RetentionInDays: 14
+      KmsKeyId: !GetAtt FeedbackKey.Arn
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  SubmitFeedbackFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      SkipBuild: True
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-submit-feedback
+      Description: Validates, classifies and stores a course feedback (POST /avaliacao).
+      CodeUri: ../functions/submit-feedback/target/submit-feedback-1.0.0-SNAPSHOT.jar
+      Handler: com.vitorbetmann.schoolapi.infrastructure.SubmitFeedbackHandler::handleRequest
+      Role: !If [UseLabRole, !Ref LambdaRoleArn, !Ref AWS::NoValue]
+      LoggingConfig:
+        LogGroup: !Ref SubmitFeedbackLogGroup
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref FeedbacksTable
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref FeedbacksTable
+        - Statement:
+            - Sid: UseFeedbackKeyThroughDynamoDB
+              Effect: Allow
+              Action: kms:Decrypt
+              Resource: !GetAtt FeedbackKey.Arn
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub dynamodb.${AWS::Region}.amazonaws.com
+      Events:
+        SubmitFeedback:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FeedbackApi
+            Path: /avaliacao
+            Method: POST
+            RequestModel:
+              Model: SubmitFeedbackRequest
+              Required: true
+              ValidateBody: true
+
+Outputs:
+  ApiUrl:
+    Description: POST endpoint for course feedback.
+    Value: !Sub https://${FeedbackApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}/avaliacao
+  ApiKeyId:
+    Description: API key id (get the value with aws apigateway get-api-key --include-value).
+    Value: !Ref FeedbackApiApiKey
+  FeedbacksTableName:
+    Description: DynamoDB table holding the feedbacks.
+    Value: !Ref FeedbacksTable

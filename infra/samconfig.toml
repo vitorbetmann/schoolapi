@@ -1,0 +1,21 @@
+version = 0.1
+
+[default.global.parameters]
+stack_name = "schoolapi"
+
+[default.build.parameters]
+template_file = "infra/template.yaml"
+
+[default.validate.parameters]
+template_file = "infra/template.yaml"
+lint = true
+
+[default.deploy.parameters]
+region = "us-east-1"
+resolve_s3 = true
+s3_prefix = "schoolapi"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+fail_on_empty_changeset = false
+parameter_overrides = "Stage=prod"
+tags = "Project=schoolapi"

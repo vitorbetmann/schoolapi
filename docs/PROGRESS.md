@@ -7,7 +7,7 @@ Add a one-line note per step (date, what changed, anything left over).
 - [x] Step 1 — Repo scaffold
 - [x] Step 2 — Domain (shared), test-first
 - [x] Step 3 — Function 1: submit-feedback
-- [ ] Step 4 — Infrastructure base + first deploy
+- [x] Step 4 — Infrastructure base + first deploy
 - [ ] Step 5 — Function 2: notify-critical-feedback
 - [ ] Step 6 — Function 3: generate-weekly-report
 - [ ] Step 7 — Security and access governance
@@ -46,3 +46,13 @@ Add a one-line note per step (date, what changed, anything left over).
   in `shared` (ADR-014), attribute `day` (ADR-013, PLAN updated). Powertools logging via the functional
   `PowertoolsLogging.withLogging` (no AspectJ needed), JSON logs with API Gateway correlation id, no
   description in logs. 57 tests green. Left over: `sam local invoke` needs the SAM template → check in Step 4.
+- 2026-11-19 · Step 4: `infra/template.yaml` (KMS key `alias/schoolapi`, `schoolapi-feedbacks` table with
+  `by-day` GSI, PITR, stream `NEW_IMAGE`; REST API `prod` with API key, usage plan 10/20 rps + 5000/day,
+  JSON-schema validation whose 400 uses our `{"errors": [...]}` shape, JSON access logs; `submit-feedback`
+  function; KMS-encrypted log groups, 14 days), `infra/samconfig.toml`, `scripts/smoke-test.sh`, ADR-015
+  (Maven builds JARs, SAM `SkipBuild`). Deployed to us-east-1; smoke test 201/400/201, no key → 403,
+  items in DynamoDB, `sam local invoke` → 201. Changes vs PLAN: the function also needs `kms:Decrypt` on
+  the key (scoped with `kms:ViaService` DynamoDB) because the table uses a customer-managed key;
+  `AdminEmail` moves to Step 5 (unused params fail `--lint`; pass it with `--parameter-overrides`, never
+  in `samconfig.toml`); an API Gateway account CloudWatch role was added (needed for access logs,
+  region-wide setting). New API keys take a few minutes to start working.
