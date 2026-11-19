@@ -13,7 +13,7 @@ Add a one-line note per step (date, what changed, anything left over).
 - [x] Step 7 — Security and access governance
 - [x] Step 8 — Monitoring
 - [x] Step 9 — Automated deploy (CD)
-- [ ] Step 10 — README (English + Portuguese)
+- [x] Step 10 — README (English + Portuguese)
 
 ## Environment facts (fill in during Step 0)
 - AWS account type: personal (IAM Identity Center user with `AdministratorAccess`, CLI profile `schoolapi`)
@@ -112,3 +112,10 @@ Add a one-line note per step (date, what changed, anything left over).
   changing the report log line (`durationMs`) deployed through the pipeline and the new line showed in CloudWatch. Also
   fixed: `generate-weekly-report` had no `log4j2.xml` since Step 6, so it logged plain text instead of Powertools JSON.
   No `scripts/deploy.sh` (personal account; the README covers the Learner Lab manual deploy).
+- 2026-11-19 · Step 10: README complete in both halves, in the template's order: Cloud model (public cloud, serverless
+  FaaS + managed services, why, shared responsibility, cost), Architecture (Mermaid diagram, components table, DynamoDB
+  data model, Clean Architecture layout), Serverless functions (responsibility, trigger, input/output, permissions,
+  metric, handler per function; pt-BR email example), Endpoint (request, 201/400/403/429/500, curl). Manual deploy is
+  generic (clone + any admin credentials). Headings pair up and all 11 code blocks are identical in both halves. Javadoc
+  added to `GeneratedWeeklyReport` (use cases and gateways already had it). Open: record the demo video and add its link
+  (reset demo data the same day).
