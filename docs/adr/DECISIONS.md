@@ -178,7 +178,7 @@ for the stream trigger), whose resources are `*`; every statement we write is re
 ## ADR-017 — CD roles: environment-scoped OIDC trust + CloudFormation execution role
 **Decision:** `infra/bootstrap/github-oidc.yaml` (deployed once by an admin) creates the GitHub OIDC provider,
 `github-deploy-schoolapi` and `cfn-exec-schoolapi`. The deploy role trusts only tokens whose subject is
-`repo:<owner>/<repo>:environment:prod`; the `prod` GitHub environment allows only the `main` branch and needs a
+`repo:<owner>@<owner-id>/<repo>@<repo-id>:environment:prod` (GitHub's immutable subject format, which this repo uses, so a renamed or re-created repo can't match); the `prod` GitHub environment allows only the `main` branch and needs a
 reviewer's approval. The deploy role can only manage change sets on the `schoolapi` stack, upload to the SAM
 artifact bucket and pass `cfn-exec-schoolapi` to CloudFormation; that execution role (PowerUser + IAM on
 `role/schoolapi-*`) is what actually changes resources. Role ARNs live in GitHub repository variables
