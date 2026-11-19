@@ -8,6 +8,11 @@ Parameters:
     Default: prod
     AllowedPattern: "[a-z0-9]+"
     Description: API Gateway stage name.
+  AdminEmail:
+    Type: String
+    AllowedPattern: "[^@\\s]+@[^@\\s]+\\.[^@\\s]+"
+    ConstraintDescription: must be a valid email address.
+    Description: Administrator email that receives critical-feedback notices (must confirm the SNS subscription).
   LambdaRoleArn:
     Type: String
     Default: ""
@@ -236,6 +241,90 @@ Resources:
               Required: true
               ValidateBody: true
 
+  CriticalFeedbackTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${AWS::StackName}-critical-feedback
+      KmsMasterKeyId: !Ref FeedbackKey
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  CriticalFeedbackAdminSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref CriticalFeedbackTopic
+      Protocol: email
+      Endpoint: !Ref AdminEmail
+
+  NotifyCriticalFeedbackDlq:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-notify-critical-feedback-dlq
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  NotifyCriticalFeedbackLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-notify-critical-feedback
+      RetentionInDays: 14
+      KmsKeyId: !GetAtt FeedbackKey.Arn
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  NotifyCriticalFeedbackFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      SkipBuild: True
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-notify-critical-feedback
+      Description: Emails the admins when a critical feedback is stored (DynamoDB stream, filtered).
+      CodeUri: ../functions/notify-critical-feedback/target/notify-critical-feedback-1.0.0-SNAPSHOT.jar
+      Handler: com.vitorbetmann.schoolapi.infrastructure.NotifyCriticalFeedbackHandler::handleRequest
+      Role: !If [UseLabRole, !Ref LambdaRoleArn, !Ref AWS::NoValue]
+      LoggingConfig:
+        LogGroup: !Ref NotifyCriticalFeedbackLogGroup
+      Environment:
+        Variables:
+          TOPIC_ARN: !Ref CriticalFeedbackTopic
+      Policies:
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt CriticalFeedbackTopic.TopicName
+        - Statement:
+            - Sid: UseFeedbackKeyThroughDynamoDBAndSns
+              Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey
+              Resource: !GetAtt FeedbackKey.Arn
+              Condition:
+                StringEquals:
+                  kms:ViaService:
+                    - !Sub dynamodb.${AWS::Region}.amazonaws.com
+                    - !Sub sns.${AWS::Region}.amazonaws.com
+      Events:
+        CriticalFeedbackInserted:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt FeedbacksTable.StreamArn
+            StartingPosition: LATEST
+            BatchSize: 10
+            MaximumRetryAttempts: 3
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+            FilterCriteria:
+              Filters:
+                - Pattern: '{"eventName": ["INSERT"], "dynamodb": {"NewImage": {"urgency": {"S": ["CRITICAL"]}}}}'
+            DestinationConfig:
+              OnFailure:
+                Type: SQS
+                Destination: !GetAtt NotifyCriticalFeedbackDlq.Arn
+
 Outputs:
   ApiUrl:
     Description: POST endpoint for course feedback.
@@ -243,6 +332,9 @@ Outputs:
   ApiKeyId:
     Description: API key id (get the value with aws apigateway get-api-key --include-value).
     Value: !Ref FeedbackApiApiKey
+  CriticalFeedbackTopicArn:
+    Description: SNS topic for critical-feedback notices.
+    Value: !Ref CriticalFeedbackTopic
   FeedbacksTableName:
     Description: DynamoDB table holding the feedbacks.
     Value: !Ref FeedbacksTable

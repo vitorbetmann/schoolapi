@@ -3,9 +3,11 @@ package com.vitorbetmann.schoolapi.infrastructure.dynamo;
 import com.vitorbetmann.schoolapi.entities.Feedback;
 import com.vitorbetmann.schoolapi.entities.Urgency;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -37,5 +39,18 @@ class FeedbackItemTest {
 
         assertThat(attributes).containsOnlyKeys("id", "description", "score", "urgency", "submittedAt", "day");
         assertThat(attributes.get("score").n()).isEqualTo("2");
+    }
+
+    @Test
+    void rebuildsFeedbackFromStreamAttributes() {
+        var attributes = Map.of(
+                "id", AttributeValue.fromS("3f6c1b2e"),
+                "description", AttributeValue.fromS("Aula confusa"),
+                "score", AttributeValue.fromN("2"),
+                "urgency", AttributeValue.fromS("CRITICAL"),
+                "submittedAt", AttributeValue.fromS("2026-11-18T13:45:00.123Z"),
+                "day", AttributeValue.fromS("2026-11-18"));
+
+        assertThat(FeedbackItem.fromAttributes(attributes).toDomain()).isEqualTo(this.feedback);
     }
 }

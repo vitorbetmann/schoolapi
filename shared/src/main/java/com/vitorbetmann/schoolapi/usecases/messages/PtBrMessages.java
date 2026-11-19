@@ -11,6 +11,7 @@ import java.time.format.DateTimeFormatter;
 public final class PtBrMessages {
 
     public static final String CRITICAL_FEEDBACK_SUBJECT = "[Urgente] Novo feedback crítico recebido";
+    public static final String CRITICAL_FEEDBACK_INTRO = "Um novo feedback crítico foi recebido.";
 
     public static final String DESCRIPTION = "Descrição";
     public static final String URGENCY = "Urgência";
@@ -29,6 +30,13 @@ public final class PtBrMessages {
 
     public static String weeklyReportSubject(ReportPeriod period) {
         return WEEKLY_REPORT_SUBJECT_PREFIX + period.isoWeek();
+    }
+
+    public static String criticalFeedbackMessage(Feedback feedback) {
+        return CRITICAL_FEEDBACK_INTRO + "\n\n"
+                + DESCRIPTION + ": " + feedback.description() + "\n"
+                + URGENCY + ": " + urgencyLabel(feedback.urgency()) + "\n"
+                + SUBMITTED_AT + ": " + formatDateTime(feedback.submittedAt()) + "\n";
     }
 
     public static String urgencyLabel(Urgency urgency) {

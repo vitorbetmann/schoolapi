@@ -5,9 +5,11 @@ import com.vitorbetmann.schoolapi.entities.Urgency;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.StaticAttributeTags;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.StaticTableSchema;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Map;
 
 public class FeedbackItem {
 
@@ -48,6 +50,10 @@ public class FeedbackItem {
         item.setSubmittedAt(feedback.submittedAt().toString());
         item.setDay(feedback.day().toString());
         return item;
+    }
+
+    public static FeedbackItem fromAttributes(Map<String, AttributeValue> attributes) {
+        return SCHEMA.mapToItem(attributes);
     }
 
     public Feedback toDomain() {

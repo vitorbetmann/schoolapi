@@ -8,7 +8,7 @@ Add a one-line note per step (date, what changed, anything left over).
 - [x] Step 2 — Domain (shared), test-first
 - [x] Step 3 — Function 1: submit-feedback
 - [x] Step 4 — Infrastructure base + first deploy
-- [ ] Step 5 — Function 2: notify-critical-feedback
+- [x] Step 5 — Function 2: notify-critical-feedback
 - [ ] Step 6 — Function 3: generate-weekly-report
 - [ ] Step 7 — Security and access governance
 - [ ] Step 8 — Monitoring
@@ -56,3 +56,12 @@ Add a one-line note per step (date, what changed, anything left over).
   `AdminEmail` moves to Step 5 (unused params fail `--lint`; pass it with `--parameter-overrides`, never
   in `samconfig.toml`); an API Gateway account CloudWatch role was added (needed for access logs,
   region-wide setting). New API keys take a few minutes to start working.
+- 2026-11-19 · Step 5: `NotifyCriticalFeedback` use case (publishes only for `CRITICAL`), pt-BR body in
+  `PtBrMessages.criticalFeedbackMessage`, `FeedbackItem.fromAttributes` (stream image → domain, one mapping),
+  `NotifyCriticalFeedbackHandler` (partial batch response by sequence number), `SnsNotificationGatewayImpl`.
+  Template: `AdminEmail` parameter, KMS-encrypted topic `schoolapi-critical-feedback` + email subscription,
+  SQS DLQ (SSE), stream trigger filtered on `INSERT` + `urgency = CRITICAL`, 3 retries, policy = SNS publish
+  + KMS via DynamoDB/SNS (+ SAM's stream-read and DLQ send). Test helper `aws-lambda-java-tests` loads
+  `events/`. 64 tests green. Deployed: score 8 → no invocation, scores 2 and 1 → `noticeSent=true`, email
+  delivered after the subscription was confirmed. `AdminEmail` is passed once with `--parameter-overrides`
+  (SAM reuses it on later deploys); it is not in the repo.
