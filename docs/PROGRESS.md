@@ -9,7 +9,7 @@ Add a one-line note per step (date, what changed, anything left over).
 - [x] Step 3 — Function 1: submit-feedback
 - [x] Step 4 — Infrastructure base + first deploy
 - [x] Step 5 — Function 2: notify-critical-feedback
-- [ ] Step 6 — Function 3: generate-weekly-report
+- [x] Step 6 — Function 3: generate-weekly-report
 - [ ] Step 7 — Security and access governance
 - [ ] Step 8 — Monitoring
 - [ ] Step 9 — Automated deploy (CD)
@@ -65,3 +65,17 @@ Add a one-line note per step (date, what changed, anything left over).
   `events/`. 64 tests green. Deployed: score 8 → no invocation, scores 2 and 1 → `noticeSent=true`, email
   delivered after the subscription was confirmed. `AdminEmail` is passed once with `--parameter-overrides`
   (SAM reuses it on later deploys); it is not in the repo.
+- 2026-11-19 · Step 6: `GenerateWeeklyReport` use case (7 × `findByDay` →
+  `WeeklyReport.from` → save → publish, returns `GeneratedWeeklyReport`), `PtBrMessages.weeklyReportMessage`
+  (period, comma average, totals, per-day/per-urgency counts, every feedback, S3 location).
+  `GenerateWeeklyReportHandler` is a `RequestStreamHandler` (JSON via `JsonMapper`; no `referenceDate` → today in
+  São Paulo), `S3ReportStorageGatewayImpl` (`reports/YYYY/Www.json`, English JSON via `WeeklyReportDocument`), a copy of
+  `SnsNotificationGatewayImpl` (ADR-014 unchanged). Template: private bucket (SSE-KMS + bucket key, versioned,
+  Block Public Access, owner-enforced, TLS-only policy), KMS topic `schoolapi-weekly-report` + email subscription,
+  function + log group, `ScheduleV2` `cron(0 8 ? * MON *)` in `America/Sao_Paulo`. Changes vs PLAN: `s3:PutObject` on
+  `reports/*` instead of `S3WritePolicy` (which also grants ACL/lifecycle writes); an explicit `WeeklyReportScheduleRole`
+  because SAM skips creating the Scheduler role when `RoleArn` is an `!If`. Scripts `seed-feedbacks.sh` (30 items
+  straight into DynamoDB, 3 critical → 3 critical emails) and `invoke-report.sh`. 74 tests green, lint clean.
+  Deployed: schedule enabled (`America/Sao_Paulo`), bucket blocks public access; seed → 3 critical notices sent;
+  invoke → `reports/2026/W46.json` (SSE-KMS, 30 items, average 6.67, per-day 5/4/6/3/5/4/3, per-urgency 3/10/17) and
+  the pt-BR report email delivered after confirming the new subscription (first invoke ran before confirmation).

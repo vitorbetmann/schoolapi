@@ -325,6 +325,153 @@ Resources:
                 Type: SQS
                 Destination: !GetAtt NotifyCriticalFeedbackDlq.Arn
 
+  ReportsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-reports-${AWS::AccountId}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !GetAtt FeedbackKey.Arn
+            BucketKeyEnabled: true
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  ReportsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ReportsBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - !GetAtt ReportsBucket.Arn
+              - !Sub ${ReportsBucket.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  WeeklyReportTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${AWS::StackName}-weekly-report
+      KmsMasterKeyId: !Ref FeedbackKey
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  WeeklyReportAdminSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref WeeklyReportTopic
+      Protocol: email
+      Endpoint: !Ref AdminEmail
+
+  WeeklyReportScheduleRole:
+    Type: AWS::IAM::Role
+    Condition: CreateRoles
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: InvokeGenerateWeeklyReport
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt GenerateWeeklyReportFunction.Arn
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  GenerateWeeklyReportLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-generate-weekly-report
+      RetentionInDays: 14
+      KmsKeyId: !GetAtt FeedbackKey.Arn
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  GenerateWeeklyReportFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      SkipBuild: True
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-generate-weekly-report
+      Description: Aggregates the last 7 days of feedback, stores the report in S3 and emails a summary.
+      CodeUri: ../functions/generate-weekly-report/target/generate-weekly-report-1.0.0-SNAPSHOT.jar
+      Handler: com.vitorbetmann.schoolapi.infrastructure.GenerateWeeklyReportHandler::handleRequest
+      Role: !If [UseLabRole, !Ref LambdaRoleArn, !Ref AWS::NoValue]
+      Timeout: 30
+      LoggingConfig:
+        LogGroup: !Ref GenerateWeeklyReportLogGroup
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref FeedbacksTable
+          BUCKET_NAME: !Ref ReportsBucket
+          TOPIC_ARN: !Ref WeeklyReportTopic
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref FeedbacksTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt WeeklyReportTopic.TopicName
+        - Statement:
+            - Sid: WriteWeeklyReports
+              Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub ${ReportsBucket.Arn}/reports/*
+            - Sid: UseFeedbackKeyThroughDynamoDBS3AndSns
+              Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey
+              Resource: !GetAtt FeedbackKey.Arn
+              Condition:
+                StringEquals:
+                  kms:ViaService:
+                    - !Sub dynamodb.${AWS::Region}.amazonaws.com
+                    - !Sub s3.${AWS::Region}.amazonaws.com
+                    - !Sub sns.${AWS::Region}.amazonaws.com
+      Events:
+        WeeklySchedule:
+          Type: ScheduleV2
+          Properties:
+            Name: !Sub ${AWS::StackName}-weekly-report
+            Description: Every Monday at 08:00 Sao Paulo time, report the previous Monday-Sunday.
+            ScheduleExpression: cron(0 8 ? * MON *)
+            ScheduleExpressionTimezone: America/Sao_Paulo
+            Input: "{}"
+            RoleArn: !If [UseLabRole, !Ref LambdaRoleArn, !GetAtt WeeklyReportScheduleRole.Arn]
+            RetryPolicy:
+              MaximumRetryAttempts: 2
+
 Outputs:
   ApiUrl:
     Description: POST endpoint for course feedback.
@@ -338,3 +485,12 @@ Outputs:
   FeedbacksTableName:
     Description: DynamoDB table holding the feedbacks.
     Value: !Ref FeedbacksTable
+  ReportsBucketName:
+    Description: Private S3 bucket holding the weekly reports (reports/YYYY/Www.json).
+    Value: !Ref ReportsBucket
+  WeeklyReportTopicArn:
+    Description: SNS topic for the weekly report summary.
+    Value: !Ref WeeklyReportTopic
+  GenerateWeeklyReportFunctionName:
+    Description: Function to invoke for an on-demand report (scripts/invoke-report.sh).
+    Value: !Ref GenerateWeeklyReportFunction

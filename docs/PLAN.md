@@ -116,7 +116,7 @@ CloudWatch metric). Unit tests for the use case (including the pt-BR text) + han
   - Infrastructure: `DynamoFeedbackGatewayImpl.findByDay` (GSI `by-day`, paginated),
     `S3ReportStorageGatewayImpl`, `ReportRenderer` (JSON stored + plain-text summary emailed, in pt-BR).
   - Write `reports/YYYY/Www.json` to S3; publish the summary to SNS with the S3 key.
-- `AWS::Scheduler::Schedule`: `cron(0 11 ? * MON *)` (08:00 São Paulo), timezone set.
+- `AWS::Scheduler::Schedule`: `cron(0 8 ? * MON *)` with timezone `America/Sao_Paulo` (08:00 São Paulo = 11:00 UTC).
 - Policy: `DynamoDBReadPolicy` (table + GSI), `S3WritePolicy` (bucket), SNS publish (topic).
 - `scripts/invoke-report.sh` to trigger it manually.
 
