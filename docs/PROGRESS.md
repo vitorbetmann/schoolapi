@@ -5,7 +5,7 @@ Add a one-line note per step (date, what changed, anything left over).
 
 - [ ] Step 0 — Accounts and local tools
 - [x] Step 1 — Repo scaffold
-- [ ] Step 2 — Domain (shared), test-first
+- [x] Step 2 — Domain (shared), test-first
 - [ ] Step 3 — Function 1: submit-feedback
 - [ ] Step 4 — Infrastructure base + first deploy
 - [ ] Step 5 — Function 2: notify-critical-feedback
@@ -31,3 +31,8 @@ Add a one-line note per step (date, what changed, anything left over).
   shared test deps in the parent; `events/` with API Gateway POST, DynamoDB stream INSERT and
   Scheduler samples. `mvn -q verify` green. Open: ADR-004/PLAN say GSI key `dia`, but ADR-011
   says English attributes, so the sample event uses `day`. Needs a new ADR or PLAN fix before Step 4.
+- 2026-11-18 · Step 2: `Urgency`, `Feedback.create` (collects all violations into
+  `InvalidFeedbackException`), `ReportPeriod` (7 days before a reference date, ISO-week label),
+  `WeeklyReport.from` (2-decimal average, empty when no feedback; per-day/per-urgency counts incl.
+  zeros), 3 gateway interfaces, `PtBrMessages`, `JsonMapper`. 45 unit tests green. `day` is the
+  São Paulo calendar date of `submittedAt` (UTC). "Missing body" violation is left to the Step 3 handler.
