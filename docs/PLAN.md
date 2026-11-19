@@ -69,7 +69,7 @@ Rubric: `[COD]` `[FUNC]`
 - `infra/template.yaml` (SAM):
   - `Globals`: runtime `java21`, arch `arm64`, memory 512, timeout 15, env `POWERTOOLS_SERVICE_NAME`.
   - `FeedbackKey` (KMS CMK) with alias, used by DynamoDB, SNS, S3.
-  - `FeedbacksTable`: PK `id` (S); GSI `by-day` PK `dia` (S, yyyy-MM-dd) SK `submittedAt` (S);
+  - `FeedbacksTable`: PK `id` (S); GSI `by-day` PK `day` (S, yyyy-MM-dd, ADR-013) SK `submittedAt` (S);
     on-demand; SSE-KMS; PITR on; Stream `NEW_IMAGE`.
   - `FeedbackApi` (`AWS::Serverless::Api`): stage `prod`, `ApiKeyRequired: true`, usage plan
     (rate 10 rps, burst 20, quota 5000/day), access logs to CloudWatch, request validator +

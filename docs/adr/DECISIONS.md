@@ -129,3 +129,20 @@ even when they are good practice: Postman collection, coverage reports, CI test 
 tracing, SnapStart, WAF, S3 versioning/lifecycle, extra docs files and video tooling.
 **Why:** The group's call. It keeps the scope small and the explanation focused on the graded items.
 **Consequences:** anything new needs a requirement to point to, or the group's explicit OK.
+
+## ADR-013 — Day attribute: `day`, São Paulo calendar date
+**Decision:** The `by-day` GSI partition key is the attribute `day` (not `dia` as written in ADR-004).
+Its value is the `America/Sao_Paulo` calendar date of `submittedAt` (`yyyy-MM-dd`); `submittedAt`
+itself stays UTC ISO-8601.
+**Why:** ADR-011 makes every DynamoDB attribute English. Using the São Paulo date means a feedback sent
+at 22:30 in Brazil counts on that day in the weekly report, which is what the Brazilian admins expect.
+**Consequences:** supersedes the attribute name in ADR-004; everything else in ADR-004 still holds.
+
+## ADR-014 — DynamoDB feedback gateway lives in `shared`
+**Decision:** `DynamoFeedbackGatewayImpl` and its item mapping (`FeedbackItem`) live in
+`shared/…/infrastructure/dynamo`. The SNS and S3 gateways stay in their function modules.
+**Why:** Two functions use the same table (`submit-feedback` writes, `generate-weekly-report` reads by day),
+and a function module can't depend on another. One mapping keeps the attribute names in one place.
+**Consequences:** `shared` depends on the DynamoDB Enhanced Client (with the lightweight URL-connection
+HTTP client). Entities and use cases still have no AWS imports. Each function's IAM policy still limits
+what it can do with the table (write-only vs read-only).
