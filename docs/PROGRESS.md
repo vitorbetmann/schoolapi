@@ -3,7 +3,7 @@
 Claude: read this first every session. Tick a step only when all its acceptance criteria pass.
 Add a one-line note per step (date, what changed, anything left over).
 
-- [ ] Step 0 — Accounts and local tools
+- [x] Step 0 — Accounts and local tools
 - [x] Step 1 — Repo scaffold
 - [x] Step 2 — Domain (shared), test-first
 - [x] Step 3 — Function 1: submit-feedback
@@ -16,7 +16,7 @@ Add a one-line note per step (date, what changed, anything left over).
 - [ ] Step 10 — README (English + Portuguese)
 
 ## Environment facts (fill in during Step 0)
-- AWS account type: <personal | AWS Academy Learner Lab>
+- AWS account type: personal (IAM Identity Center user with `AdministratorAccess`, CLI profile `schoolapi`)
 - Region: us-east-1
 - Admin email(s) for notifications:
 - GitHub repo: https://github.com/vitorbetmann/schoolapi (public)
@@ -26,6 +26,11 @@ Add a one-line note per step (date, what changed, anything left over).
   AWS CLI 2.41.1, SAM CLI 1.172.1, Docker 29.8.0, Git 2.53.0). Group is one person.
   Pending: AWS account activation (card verification failing), root MFA, $5 budget,
   Identity Center user + `aws configure sso`. Must be done before Step 4. (Public GitHub repo: done.)
+- 2026-11-18 · Step 0 (done): personal AWS account active (card verified after the bank cleared the
+  US$1 authorization). Root MFA on, no root access keys. Budget `schoolapi-budget` $5/month with
+  alerts at 50/80/100% actual. IAM Identity Center user with `AdministratorAccess`; CLI via
+  `aws configure sso`, profile `schoolapi`, region us-east-1. `java -version` 21, `sam --version`,
+  `aws sts get-caller-identity` (assumed SSO role, not root) all verified.
 - 2026-11-18 · Step 1: modules `shared` + 3 function modules (English names) enabled, each
   function builds a shaded JAR; versions bumped (SDK 2.59.4, Powertools 2.11.0, JUnit 6.1.3…);
   shared test deps in the parent; `events/` with API Gateway POST, DynamoDB stream INSERT and
