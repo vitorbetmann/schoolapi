@@ -89,3 +89,6 @@ Add a one-line note per step (date, what changed, anything left over).
   no data, no deploy), `FeedbackReadOnly` (metrics/dashboards/stack status), assigned to the account. MFA and group
   membership are documented console settings. ADR-016. README security section in both halves. 74 tests green,
   both templates lint clean. Deployed: SNS needs one topic per policy statement (first deploy rolled back; the retained audit bucket had to be emptied and deleted before redeploying), so there is one TLS-only policy per topic. Smoke test 201/400/201, critical notice sent, report generated with the Query-only role, trail logging, 4 permission sets (3 new + existing AdministratorAccess), Env/Owner/Project tags on resources. Open: `seed-feedbacks.sh` comment/urgency mismatch (separate fix).
+- 2026-11-19 · Fix: `seed-feedbacks.sh` picks each comment from a list for the score's urgency (critical / medium / low),
+  so a positive comment is never marked critical. Same scores, days and counts (3/10/17). Checked with a fake `aws`
+  under macOS bash 3.2.

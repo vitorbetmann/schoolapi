@@ -28,15 +28,44 @@ urgency_of() {
 PER_DAY=(5 4 6 3 5 4 3)
 # 3 critical, 10 medium, 17 low.
 SCORES=(9 8 2 7 10 5 6 8 9 4 7 1 8 6 9 10 5 7 8 4 9 3 6 7 8 5 9 6 10 4)
-DESCRIPTIONS=(
-  "Aula muito boa, exemplos claros."
-  "Conteúdo bem organizado."
-  "Não consegui acompanhar a explicação."
-  "Gostei dos exercícios práticos."
-  "Excelente aula, professor muito didático."
+# Comments per urgency, so the text always matches the score's tone.
+CRITICAL_DESCRIPTIONS=(
+  "Não consegui acompanhar a explicação, a aula foi confusa do início ao fim."
+  "O áudio da gravação estava cortando e perdi metade do conteúdo."
+  "Os exercícios cobraram assuntos que não foram explicados."
+)
+MEDIUM_DESCRIPTIONS=(
   "Ritmo um pouco rápido demais."
   "Faltaram exemplos do mundo real."
+  "Conteúdo bom, mas os slides estavam desatualizados."
+  "A parte prática foi curta, gostaria de mais exercícios."
+  "Explicação razoável, alguns pontos ficaram vagos."
 )
+LOW_DESCRIPTIONS=(
+  "Aula muito boa, exemplos claros."
+  "Conteúdo bem organizado."
+  "Gostei dos exercícios práticos."
+  "Excelente aula, professor muito didático."
+  "Ótima explicação, consegui aplicar no trabalho."
+  "Material de apoio muito completo."
+)
+critical_count=0
+medium_count=0
+low_count=0
+
+description_for() {
+  case "$1" in
+    CRITICAL)
+      description="${CRITICAL_DESCRIPTIONS[critical_count % ${#CRITICAL_DESCRIPTIONS[@]}]}"
+      critical_count=$(( critical_count + 1 )) ;;
+    MEDIUM)
+      description="${MEDIUM_DESCRIPTIONS[medium_count % ${#MEDIUM_DESCRIPTIONS[@]}]}"
+      medium_count=$(( medium_count + 1 )) ;;
+    *)
+      description="${LOW_DESCRIPTIONS[low_count % ${#LOW_DESCRIPTIONS[@]}]}"
+      low_count=$(( low_count + 1 )) ;;
+  esac
+}
 
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
@@ -50,8 +79,9 @@ for offset in 7 6 5 4 3 2 1; do
     hour=$(( 12 + slot * 2 ))
     submitted_at="$(printf '%sT%02d:%02d:00.000Z' "$day" "$hour" $(( (index * 7) % 60 )))"
     id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
-    description="${DESCRIPTIONS[index % ${#DESCRIPTIONS[@]}]}"
-    items+=("{\"PutRequest\":{\"Item\":{\"id\":{\"S\":\"$id\"},\"description\":{\"S\":\"$description\"},\"score\":{\"N\":\"$score\"},\"urgency\":{\"S\":\"$(urgency_of "$score")\"},\"submittedAt\":{\"S\":\"$submitted_at\"},\"day\":{\"S\":\"$day\"}}}}")
+    urgency="$(urgency_of "$score")"
+    description_for "$urgency"
+    items+=("{\"PutRequest\":{\"Item\":{\"id\":{\"S\":\"$id\"},\"description\":{\"S\":\"$description\"},\"score\":{\"N\":\"$score\"},\"urgency\":{\"S\":\"$urgency\"},\"submittedAt\":{\"S\":\"$submitted_at\"},\"day\":{\"S\":\"$day\"}}}}")
     index=$(( index + 1 ))
   done
 done
