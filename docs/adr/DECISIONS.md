@@ -157,3 +157,20 @@ build (the same one the tests run), and the shaded JAR keeps the Log4j2 plugin c
 **Alternatives:** SAM's built-in Maven builder (breaks on the multi-module layout without installing
 `shared` into `~/.m2` first); `BuildMethod: makefile` (an extra Makefile per function to explain).
 **Consequences:** `sam build`/`sam deploy` need a prior `mvn package`/`verify`, so CI runs Maven first.
+
+## ADR-016 — Access governance and audit: Identity Center permission sets + CloudTrail
+**Decision:** The three access profiles (`FeedbackAdmins`, `FeedbackDevelopers`, `FeedbackReadOnly`) are
+IAM Identity Center groups with permission sets assigned to the account, defined in a separate one-time template
+`infra/bootstrap/access-governance.yaml` that an administrator deploys. MFA is enforced in the Identity Center
+settings (console). The app stack (`infra/template.yaml`) adds one CloudTrail trail (management events,
+multi-region, log file validation) writing to a private, TLS-only, SSE-S3 bucket that is retained if the stack is deleted.
+**Why:** People sign in through Identity Center (no IAM users), so the profiles must live there to be used, and MFA
+belongs at the identity provider. Keeping them out of the app stack means the CI deploy role (Step 9) never needs
+`sso-admin`/`identitystore` rights. SSE-S3 for the trail avoids an extra key-policy statement and KMS request costs;
+the first trail's management events are free.
+**Alternatives:** IAM groups with an `aws:MultiFactorAuthPresent` condition in the app stack (they would stay empty
+because nobody uses IAM users); encrypting the trail with the CMK (more key policy, KMS cost).
+**Consequences:** Group membership is managed in the console or with `aws identitystore create-group-membership`.
+Learner Lab can't create these (ADR-008), so the trail is conditional on `CreateRoles` and the bootstrap template is
+skipped there. SAM still attaches the AWS-managed `AWSLambdaBasicExecutionRole` (and `AWSLambdaDynamoDBExecutionRole`
+for the stream trigger), whose resources are `*`; every statement we write is resource-scoped.

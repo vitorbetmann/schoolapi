@@ -18,4 +18,4 @@ capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 fail_on_empty_changeset = false
 parameter_overrides = "Stage=prod"
-tags = "Project=schoolapi"
+tags = "Project=schoolapi Owner=vitorbetmann Env=prod"

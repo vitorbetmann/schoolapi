@@ -10,7 +10,7 @@ Add a one-line note per step (date, what changed, anything left over).
 - [x] Step 4 — Infrastructure base + first deploy
 - [x] Step 5 — Function 2: notify-critical-feedback
 - [x] Step 6 — Function 3: generate-weekly-report
-- [ ] Step 7 — Security and access governance
+- [x] Step 7 — Security and access governance
 - [ ] Step 8 — Monitoring
 - [ ] Step 9 — Automated deploy (CD)
 - [ ] Step 10 — README (English + Portuguese)
@@ -79,3 +79,13 @@ Add a one-line note per step (date, what changed, anything left over).
   Deployed: schedule enabled (`America/Sao_Paulo`), bucket blocks public access; seed → 3 critical notices sent;
   invoke → `reports/2026/W46.json` (SSE-KMS, 30 items, average 6.67, per-day 5/4/6/3/5/4/3, per-urgency 3/10/17) and
   the pt-BR report email delivered after confirming the new subscription (first invoke ran before confirmation).
+- 2026-11-19 · Step 7: least privilege tightened (submit = `dynamodb:PutItem` on the table, report = `dynamodb:Query` on
+  `index/by-day`, replacing SAM's broader `DynamoDBWritePolicy`/`DynamoDBReadPolicy`; checked with samtranslator, every
+  written statement is resource-scoped, only SAM's AWS-managed execution policies use `*`). `*TopicTlsOnlyPolicy` (both SNS
+  topics deny publish without TLS). CloudTrail `schoolapi-audit` (management events, multi-region, log file validation)
+  into a retained private SSE-S3 TLS-only bucket, conditional on `CreateRoles`. Stack tags `Project`/`Owner`/`Env` in
+  `samconfig.toml`. New `infra/bootstrap/access-governance.yaml`: Identity Center groups + permission sets
+  `FeedbackAdmins` (PowerUser + IAM on `role/schoolapi-*`), `FeedbackDevelopers` (stack/function config, logs, metrics;
+  no data, no deploy), `FeedbackReadOnly` (metrics/dashboards/stack status), assigned to the account. MFA and group
+  membership are documented console settings. ADR-016. README security section in both halves. 74 tests green,
+  both templates lint clean. Deployed: SNS needs one topic per policy statement (first deploy rolled back; the retained audit bucket had to be emptied and deleted before redeploying), so there is one TLS-only policy per topic. Smoke test 201/400/201, critical notice sent, report generated with the Query-only role, trail logging, 4 permission sets (3 new + existing AdministratorAccess), Env/Owner/Project tags on resources. Open: `seed-feedbacks.sh` comment/urgency mismatch (separate fix).

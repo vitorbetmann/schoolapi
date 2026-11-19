@@ -1,0 +1,195 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  SchoolAPI access governance (ADR-016). IAM Identity Center groups and permission sets for the
+  FeedbackAdmins, FeedbackDevelopers and FeedbackReadOnly profiles. Deployed once by an administrator
+  of the account that owns the Identity Center instance. MFA is enforced in the Identity Center settings.
+
+Parameters:
+  InstanceArn:
+    Type: String
+    AllowedPattern: "arn:aws:sso:::instance/ssoins-[a-f0-9]+"
+    Description: Identity Center instance ARN (aws sso-admin list-instances).
+  IdentityStoreId:
+    Type: String
+    AllowedPattern: "d-[a-z0-9]+"
+    Description: Identity store id of the same instance (aws sso-admin list-instances).
+  ProjectPrefix:
+    Type: String
+    Default: schoolapi
+    AllowedPattern: "[a-z0-9-]+"
+    Description: Stack name of the application; every resource it creates starts with this prefix.
+
+Resources:
+  FeedbackAdminsGroup:
+    Type: AWS::IdentityStore::Group
+    Properties:
+      IdentityStoreId: !Ref IdentityStoreId
+      DisplayName: FeedbackAdmins
+      Description: Manage and deploy the SchoolAPI stack and read its data.
+
+  FeedbackDevelopersGroup:
+    Type: AWS::IdentityStore::Group
+    Properties:
+      IdentityStoreId: !Ref IdentityStoreId
+      DisplayName: FeedbackDevelopers
+      Description: Read SchoolAPI configuration, logs and metrics. Deploys go through CI only.
+
+  FeedbackReadOnlyGroup:
+    Type: AWS::IdentityStore::Group
+    Properties:
+      IdentityStoreId: !Ref IdentityStoreId
+      DisplayName: FeedbackReadOnly
+      Description: View SchoolAPI metrics, alarms, dashboards and stack status. No logs, no data.
+
+  FeedbackAdminsPermissionSet:
+    Type: AWS::SSO::PermissionSet
+    Properties:
+      InstanceArn: !Ref InstanceArn
+      Name: FeedbackAdmins
+      Description: SchoolAPI administrators (deploy, operate, read data).
+      SessionDuration: PT4H
+      ManagedPolicies:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/PowerUserAccess
+      InlinePolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ManageProjectRoles
+            Effect: Allow
+            Action: iam:*
+            Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectPrefix}-*
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  FeedbackDevelopersPermissionSet:
+    Type: AWS::SSO::PermissionSet
+    Properties:
+      InstanceArn: !Ref InstanceArn
+      Name: FeedbackDevelopers
+      Description: SchoolAPI developers (read configuration, logs and metrics; no data, no deploy).
+      SessionDuration: PT4H
+      InlinePolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ReadProjectStack
+            Effect: Allow
+            Action:
+              - cloudformation:DescribeStacks
+              - cloudformation:DescribeStackEvents
+              - cloudformation:DescribeStackResources
+              - cloudformation:ListStackResources
+              - cloudformation:GetTemplate
+            Resource: !Sub arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/${ProjectPrefix}*/*
+          - Sid: ReadProjectFunctions
+            Effect: Allow
+            Action:
+              - lambda:GetFunction
+              - lambda:GetFunctionConfiguration
+              - lambda:GetPolicy
+              - lambda:ListVersionsByFunction
+              - lambda:ListAliases
+            Resource: !Sub arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:${ProjectPrefix}-*
+          - Sid: ReadProjectLogs
+            Effect: Allow
+            Action:
+              - logs:DescribeLogStreams
+              - logs:GetLogEvents
+              - logs:FilterLogEvents
+              - logs:StartQuery
+            Resource:
+              - !Sub arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/lambda/${ProjectPrefix}-*
+              - !Sub arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/lambda/${ProjectPrefix}-*:*
+              - !Sub arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/apigateway/${ProjectPrefix}-*
+              - !Sub arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/apigateway/${ProjectPrefix}-*:*
+          - Sid: ListAndQueryResultsWithoutResourceLevelSupport
+            Effect: Allow
+            Action:
+              - cloudformation:ListStacks
+              - lambda:ListFunctions
+              - lambda:ListEventSourceMappings
+              - logs:DescribeLogGroups
+              - logs:DescribeQueries
+              - logs:GetQueryResults
+              - logs:StopQuery
+              - cloudwatch:GetMetricData
+              - cloudwatch:GetMetricStatistics
+              - cloudwatch:ListMetrics
+              - cloudwatch:DescribeAlarms
+              - cloudwatch:ListDashboards
+              - cloudwatch:GetDashboard
+            Resource: "*"
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  FeedbackReadOnlyPermissionSet:
+    Type: AWS::SSO::PermissionSet
+    Properties:
+      InstanceArn: !Ref InstanceArn
+      Name: FeedbackReadOnly
+      Description: SchoolAPI viewers (metrics, alarms, dashboards, stack status; no logs, no data).
+      SessionDuration: PT4H
+      InlinePolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ReadProjectStackStatus
+            Effect: Allow
+            Action:
+              - cloudformation:DescribeStacks
+              - cloudformation:ListStackResources
+            Resource: !Sub arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/${ProjectPrefix}*/*
+          - Sid: ReadMetricsAndDashboards
+            Effect: Allow
+            Action:
+              - cloudformation:ListStacks
+              - cloudwatch:GetMetricData
+              - cloudwatch:GetMetricStatistics
+              - cloudwatch:ListMetrics
+              - cloudwatch:DescribeAlarms
+              - cloudwatch:ListDashboards
+              - cloudwatch:GetDashboard
+            Resource: "*"
+      Tags:
+        - Key: Project
+          Value: schoolapi
+
+  FeedbackAdminsAssignment:
+    Type: AWS::SSO::Assignment
+    Properties:
+      InstanceArn: !Ref InstanceArn
+      PermissionSetArn: !GetAtt FeedbackAdminsPermissionSet.PermissionSetArn
+      PrincipalType: GROUP
+      PrincipalId: !GetAtt FeedbackAdminsGroup.GroupId
+      TargetType: AWS_ACCOUNT
+      TargetId: !Ref AWS::AccountId
+
+  FeedbackDevelopersAssignment:
+    Type: AWS::SSO::Assignment
+    Properties:
+      InstanceArn: !Ref InstanceArn
+      PermissionSetArn: !GetAtt FeedbackDevelopersPermissionSet.PermissionSetArn
+      PrincipalType: GROUP
+      PrincipalId: !GetAtt FeedbackDevelopersGroup.GroupId
+      TargetType: AWS_ACCOUNT
+      TargetId: !Ref AWS::AccountId
+
+  FeedbackReadOnlyAssignment:
+    Type: AWS::SSO::Assignment
+    Properties:
+      InstanceArn: !Ref InstanceArn
+      PermissionSetArn: !GetAtt FeedbackReadOnlyPermissionSet.PermissionSetArn
+      PrincipalType: GROUP
+      PrincipalId: !GetAtt FeedbackReadOnlyGroup.GroupId
+      TargetType: AWS_ACCOUNT
+      TargetId: !Ref AWS::AccountId
+
+Outputs:
+  FeedbackAdminsGroupId:
+    Description: Add administrators here (aws identitystore create-group-membership).
+    Value: !GetAtt FeedbackAdminsGroup.GroupId
+  FeedbackDevelopersGroupId:
+    Description: Add developers here.
+    Value: !GetAtt FeedbackDevelopersGroup.GroupId
+  FeedbackReadOnlyGroupId:
+    Description: Add read-only viewers here.
+    Value: !GetAtt FeedbackReadOnlyGroup.GroupId
