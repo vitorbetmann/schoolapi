@@ -174,3 +174,20 @@ because nobody uses IAM users); encrypting the trail with the CMK (more key poli
 Learner Lab can't create these (ADR-008), so the trail is conditional on `CreateRoles` and the bootstrap template is
 skipped there. SAM still attaches the AWS-managed `AWSLambdaBasicExecutionRole` (and `AWSLambdaDynamoDBExecutionRole`
 for the stream trigger), whose resources are `*`; every statement we write is resource-scoped.
+
+## ADR-017 — CD roles: environment-scoped OIDC trust + CloudFormation execution role
+**Decision:** `infra/bootstrap/github-oidc.yaml` (deployed once by an admin) creates the GitHub OIDC provider,
+`github-deploy-schoolapi` and `cfn-exec-schoolapi`. The deploy role trusts only tokens whose subject is
+`repo:<owner>/<repo>:environment:prod`; the `prod` GitHub environment allows only the `main` branch and needs a
+reviewer's approval. The deploy role can only manage change sets on the `schoolapi` stack, upload to the SAM
+artifact bucket and pass `cfn-exec-schoolapi` to CloudFormation; that execution role (PowerUser + IAM on
+`role/schoolapi-*`) is what actually changes resources. Role ARNs live in GitHub repository variables
+(`AWS_DEPLOY_ROLE_ARN`, `AWS_CFN_EXEC_ROLE_ARN`), not in the repo.
+**Why:** A job that uses an environment gets an `environment:` subject instead of `ref:`, so trusting the
+environment (whose rules enforce the branch and the approval) is the precise condition. Splitting the deploy and
+execution roles means a leaked workflow token can't change resources outside CloudFormation. The bootstrap role names
+don't start with `schoolapi-`, so neither the execution role nor `FeedbackAdmins` can edit them.
+**Alternatives:** One deploy role with all resource permissions (simpler, broader); trusting `ref:refs/heads/main`
+(doesn't match once the job uses an environment).
+**Consequences:** The app stack is now associated with `cfn-exec-schoolapi`; later manual deploys keep using it.
+Learner Lab can't create OIDC providers or roles (ADR-008), so there you deploy manually with lab credentials.
