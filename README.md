@@ -84,6 +84,41 @@ aws lambda invoke --function-name schoolapi-generate-weekly-report --cli-binary-
 
 Within about 5 minutes `schoolapi-generate-weekly-report-errors` goes to ALARM and the admin gets an email; it returns to OK (another email) after the next quiet period.
 
+## Deploy (manual and automated)
+
+Requirements: AWS account, AWS CLI v2, SAM CLI, JDK 21, Maven 3.9+. Maven builds the function JARs and SAM only
+packages and deploys them (ADR-015).
+
+**Manual (first deploy).** `AdminEmail` is needed only the first time; later deploys reuse it. Confirm the three SNS
+subscription emails (critical feedback, weekly report, ops alerts) after the first deploy.
+
+```bash
+aws sso login --profile schoolapi
+export AWS_PROFILE=schoolapi
+mvn -q verify
+sam build --config-file infra/samconfig.toml
+sam deploy --config-file infra/samconfig.toml --no-confirm-changeset --parameter-overrides Stage=prod AdminEmail=<admin-email>
+scripts/smoke-test.sh
+```
+
+**Automated (every push to `main`).** `.github/workflows/deploy.yml` runs `mvn -B verify` → `sam build` → `sam deploy`.
+AWS credentials come from GitHub OIDC (no stored keys), and the job runs in the protected `prod` environment, which only
+accepts `main` and waits for a reviewer's approval. The workflow role can only manage the `schoolapi` stack's change sets;
+CloudFormation applies them with its own execution role (ADR-017). One-time setup, as an administrator:
+
+```bash
+gh api repos/<owner>/<repo> --jq '.owner.id, .id'
+aws cloudformation deploy --template-file infra/bootstrap/github-oidc.yaml --stack-name schoolapi-github-oidc --capabilities CAPABILITY_NAMED_IAM --parameter-overrides GitHubOwner=<owner> GitHubOwnerId=<owner-id> GitHubRepo=<repo> GitHubRepoId=<repo-id> --tags Project=schoolapi Owner=<owner> Env=prod
+gh variable set AWS_DEPLOY_ROLE_ARN -b <GitHubDeployRoleArn output>
+gh variable set AWS_CFN_EXEC_ROLE_ARN -b <CloudFormationExecutionRoleArn output>
+```
+
+Then create the GitHub environment `prod` (Settings → Environments) with a required reviewer and a deployment branch
+rule for `main`.
+
+> AWS Academy Learner Lab can't create IAM roles or OIDC providers: deploy manually with the lab credentials and
+> `--parameter-overrides Stage=prod AdminEmail=<admin-email> LambdaRoleArn=<LabRole ARN>` (ADR-008).
+
 ---
 
 ## 🇧🇷Descrição em Português
@@ -165,3 +200,40 @@ aws lambda invoke --function-name schoolapi-generate-weekly-report --cli-binary-
 ```
 
 Em cerca de 5 minutos `schoolapi-generate-weekly-report-errors` vai para ALARM e o administrador recebe um e-mail; ele volta para OK (outro e-mail) após o próximo período sem erros.
+
+## Deploy (manual e automatizado)
+
+Requisitos: conta AWS, AWS CLI v2, SAM CLI, JDK 21, Maven 3.9+. O Maven gera os JARs das funções e o SAM apenas
+empacota e faz o deploy (ADR-015).
+
+**Manual (primeiro deploy).** `AdminEmail` só é necessário na primeira vez; os deploys seguintes reutilizam o valor.
+Confirme os três e-mails de assinatura do SNS (feedback crítico, relatório semanal, alertas de operação) após o
+primeiro deploy.
+
+```bash
+aws sso login --profile schoolapi
+export AWS_PROFILE=schoolapi
+mvn -q verify
+sam build --config-file infra/samconfig.toml
+sam deploy --config-file infra/samconfig.toml --no-confirm-changeset --parameter-overrides Stage=prod AdminEmail=<admin-email>
+scripts/smoke-test.sh
+```
+
+**Automatizado (a cada push na `main`).** `.github/workflows/deploy.yml` executa `mvn -B verify` → `sam build` →
+`sam deploy`. As credenciais da AWS vêm do OIDC do GitHub (sem chaves armazenadas), e o job roda no environment
+protegido `prod`, que só aceita a `main` e aguarda a aprovação de um revisor. A role do workflow só gerencia change sets
+da stack `schoolapi`; o CloudFormation os aplica com a própria role de execução (ADR-017). Configuração única, como
+administrador:
+
+```bash
+gh api repos/<owner>/<repo> --jq '.owner.id, .id'
+aws cloudformation deploy --template-file infra/bootstrap/github-oidc.yaml --stack-name schoolapi-github-oidc --capabilities CAPABILITY_NAMED_IAM --parameter-overrides GitHubOwner=<owner> GitHubOwnerId=<owner-id> GitHubRepo=<repo> GitHubRepoId=<repo-id> --tags Project=schoolapi Owner=<owner> Env=prod
+gh variable set AWS_DEPLOY_ROLE_ARN -b <GitHubDeployRoleArn output>
+gh variable set AWS_CFN_EXEC_ROLE_ARN -b <CloudFormationExecutionRoleArn output>
+```
+
+Depois crie o environment `prod` no GitHub (Settings → Environments) com um revisor obrigatório e uma regra de branch
+de deploy para a `main`.
+
+> O AWS Academy Learner Lab não permite criar roles IAM nem provedores OIDC: faça o deploy manual com as credenciais
+> do lab e `--parameter-overrides Stage=prod AdminEmail=<admin-email> LambdaRoleArn=<ARN da LabRole>` (ADR-008).

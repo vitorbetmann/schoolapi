@@ -12,7 +12,7 @@ Add a one-line note per step (date, what changed, anything left over).
 - [x] Step 6 — Function 3: generate-weekly-report
 - [x] Step 7 — Security and access governance
 - [x] Step 8 — Monitoring
-- [ ] Step 9 — Automated deploy (CD)
+- [x] Step 9 — Automated deploy (CD)
 - [ ] Step 10 — README (English + Portuguese)
 
 ## Environment facts (fill in during Step 0)
@@ -102,3 +102,13 @@ Add a one-line note per step (date, what changed, anything left over).
   failure (`referenceDate: invalid`) → `schoolapi-generate-weekly-report-errors` in ALARM within ~1 minute, SNS action
   succeeded. Learned: Powertools `addDimension` adds a separate dimension set (`[Service]`, `[urgency]`), so the
   dashboard queries `FeedbackReceived` by `urgency` alone. New alarms also email once on their first move to OK.
+- 2026-11-19 · Step 9: `infra/bootstrap/github-oidc.yaml` (stack `schoolapi-github-oidc`): GitHub OIDC provider,
+  `github-deploy-schoolapi` (change sets on `schoolapi`, SAM artifact uploads, `iam:PassRole` to the execution role only)
+  and `cfn-exec-schoolapi` (PowerUser + IAM on `role/schoolapi-*`, used by CloudFormation), ADR-017.
+  `.github/workflows/deploy.yml`: push to `main` / manual → `mvn -B verify` → `sam build` → `sam deploy --role-arn`, in
+  the `prod` environment (required reviewer, `main` only), role ARNs in repository variables. README Deploy section
+  (manual + automated + Learner Lab note) in both halves. Learned: this repo's OIDC subject uses GitHub's immutable format
+  `repo:owner@id/repo@id:environment:prod`, so the first run was denied until the trust policy matched it. Accepted: a push
+  changing the report log line (`durationMs`) deployed through the pipeline and the new line showed in CloudWatch. Also
+  fixed: `generate-weekly-report` had no `log4j2.xml` since Step 6, so it logged plain text instead of Powertools JSON.
+  No `scripts/deploy.sh` (personal account; the README covers the Learner Lab manual deploy).
