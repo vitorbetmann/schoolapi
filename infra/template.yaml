@@ -16,7 +16,7 @@ Parameters:
   LambdaRoleArn:
     Type: String
     Default: ""
-    Description: Optional existing role for every function (AWS Academy Learner Lab, ADR-008). Leave empty to create least-privilege roles.
+    Description: Optional existing role for every function (AWS Academy Learner Lab). Leave empty to create least-privilege roles.
 
 Conditions:
   UseLabRole: !Not [!Equals [!Ref LambdaRoleArn, ""]]

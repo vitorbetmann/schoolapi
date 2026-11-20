@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  SchoolAPI continuous deployment (ADR-010, ADR-017). GitHub Actions OIDC provider, a deploy role that only the
+  SchoolAPI continuous deployment. GitHub Actions OIDC provider, a deploy role that only the
   repository's protected "prod" environment can assume, and the CloudFormation execution role that actually changes
   the app stack's resources. Deployed once by an administrator.
 

@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  SchoolAPI access governance (ADR-016). IAM Identity Center groups and permission sets for the
+  SchoolAPI access governance. IAM Identity Center groups and permission sets for the
   FeedbackAdmins, FeedbackDevelopers and FeedbackReadOnly profiles. Deployed once by an administrator
   of the account that owns the Identity Center instance. MFA is enforced in the Identity Center settings.
 
