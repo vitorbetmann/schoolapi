@@ -14,7 +14,7 @@ automatically about critical feedback, and a weekly report with the average scor
 
 ## Demo video
 
-_Link to be added._
+[▶️ Watch on YouTube](https://youtu.be/W5ldOkT-TtU)
 
 ## Cloud model
 
@@ -79,7 +79,7 @@ time instead of scanning the table.
 | `submittedAt` | String (UTC ISO-8601) | `by-day` sort key | `2026-11-19T06:41:39.702Z` |
 | `day` | String (`yyyy-MM-dd`, São Paulo date) | `by-day` partition key | `2026-11-19` |
 
-Urgency rule (ADR-007): `0–3 → CRITICAL`, `4–6 → MEDIUM`, `7–10 → LOW`. Timestamps are stored in UTC; dates in emails and
+Urgency rule (an assumption, since the brief doesn't define one): `0–3 → CRITICAL`, `4–6 → MEDIUM`, `7–10 → LOW`. Timestamps are stored in UTC; dates in emails and
 reports are shown in `America/Sao_Paulo`.
 
 **Code layout (Clean Architecture).** `shared/` holds the entities (`Feedback`, `Urgency`, `ReportPeriod`,
@@ -204,7 +204,7 @@ Then add people to the groups (console, or `aws identitystore create-group-membe
 > SAM attaches the AWS-managed `AWSLambdaBasicExecutionRole` (and `AWSLambdaDynamoDBExecutionRole` for the stream
 > trigger), whose resources are `*`; every statement written in the template is resource-scoped. In AWS Academy
 > Learner Lab, IAM roles, Identity Center and CloudTrail can't be created: with `LambdaRoleArn` set, every function
-> uses `LabRole` and the trail is skipped. The generated roles above are the intended production setup (ADR-008, ADR-016).
+> uses `LabRole` and the trail is skipped. The generated roles above are the intended production setup.
 
 ## Monitoring
 
@@ -229,7 +229,7 @@ Within about 5 minutes `schoolapi-generate-weekly-report-errors` goes to ALARM a
 ## Deploy (manual and automated)
 
 Requirements: AWS account, AWS CLI v2, SAM CLI, JDK 21, Maven 3.9+. Maven builds the function JARs and SAM only
-packages and deploys them (ADR-015).
+packages and deploys them.
 
 **Manual (first deploy).** Use credentials with administrator rights in the target account (for example `aws configure sso`, then `export AWS_PROFILE=<profile>`). `AdminEmail` is needed only the first time; later deploys reuse it. Confirm the three SNS
 subscription emails (critical feedback, weekly report, ops alerts) after the first deploy.
@@ -246,7 +246,7 @@ scripts/smoke-test.sh
 **Automated (every push to `main`).** `.github/workflows/deploy.yml` runs `mvn -B verify` → `sam build` → `sam deploy`.
 AWS credentials come from GitHub OIDC (no stored keys), and the job runs in the protected `prod` environment, which only
 accepts `main` and waits for a reviewer's approval. The workflow role can only manage the `schoolapi` stack's change sets;
-CloudFormation applies them with its own execution role (ADR-017). One-time setup, as an administrator:
+CloudFormation applies them with its own execution role. One-time setup, as an administrator:
 
 ```bash
 gh api repos/<owner>/<repo> --jq '.owner.id, .id'
@@ -259,7 +259,7 @@ Then create the GitHub environment `prod` (Settings → Environments) with a req
 rule for `main`.
 
 > AWS Academy Learner Lab can't create IAM roles or OIDC providers: deploy manually with the lab credentials and
-> `--parameter-overrides Stage=prod AdminEmail=<admin-email> LambdaRoleArn=<LabRole ARN>` (ADR-008).
+> `--parameter-overrides Stage=prod AdminEmail=<admin-email> LambdaRoleArn=<LabRole ARN>`.
 
 ---
 
@@ -272,7 +272,7 @@ agendada.
 
 ## Vídeo de demonstração
 
-_Link a ser adicionado._
+[▶️ Assistir no YouTube](https://youtu.be/W5ldOkT-TtU)
 
 ## Modelo de cloud
 
@@ -337,7 +337,7 @@ um dia por vez em vez de varrer a tabela.
 | `submittedAt` | String (ISO-8601 em UTC) | sort key do `by-day` | `2026-11-19T06:41:39.702Z` |
 | `day` | String (`yyyy-MM-dd`, data de São Paulo) | partition key do `by-day` | `2026-11-19` |
 
-Regra de urgência (ADR-007): `0–3 → CRITICAL`, `4–6 → MEDIUM`, `7–10 → LOW`. Os horários são gravados em UTC; as datas
+Regra de urgência (uma premissa, já que o enunciado não define uma): `0–3 → CRITICAL`, `4–6 → MEDIUM`, `7–10 → LOW`. Os horários são gravados em UTC; as datas
 nos e-mails e relatórios aparecem em `America/Sao_Paulo`.
 
 **Organização do código (Clean Architecture).** `shared/` contém as entidades (`Feedback`, `Urgency`, `ReportPeriod`,
@@ -463,7 +463,7 @@ Depois adicione as pessoas aos grupos (console, ou `aws identitystore create-gro
 > para o gatilho do stream), cujos recursos são `*`; toda statement escrita no template tem recurso específico. No AWS
 > Academy Learner Lab não é possível criar roles IAM, Identity Center nem CloudTrail: com `LambdaRoleArn` definido,
 > todas as funções usam a `LabRole` e o trail é omitido. As roles geradas acima são a configuração pensada para
-> produção (ADR-008, ADR-016).
+> produção.
 
 ## Monitoramento
 
@@ -488,7 +488,7 @@ Em cerca de 5 minutos `schoolapi-generate-weekly-report-errors` vai para ALARM e
 ## Deploy (manual e automatizado)
 
 Requisitos: conta AWS, AWS CLI v2, SAM CLI, JDK 21, Maven 3.9+. O Maven gera os JARs das funções e o SAM apenas
-empacota e faz o deploy (ADR-015).
+empacota e faz o deploy.
 
 **Manual (primeiro deploy).** Use credenciais com permissão de administrador na conta de destino (por exemplo `aws configure sso` e depois `export AWS_PROFILE=<profile>`). `AdminEmail` só é necessário na primeira vez; os deploys seguintes reutilizam o valor.
 Confirme os três e-mails de assinatura do SNS (feedback crítico, relatório semanal, alertas de operação) após o
@@ -506,7 +506,7 @@ scripts/smoke-test.sh
 **Automatizado (a cada push na `main`).** `.github/workflows/deploy.yml` executa `mvn -B verify` → `sam build` →
 `sam deploy`. As credenciais da AWS vêm do OIDC do GitHub (sem chaves armazenadas), e o job roda no environment
 protegido `prod`, que só aceita a `main` e aguarda a aprovação de um revisor. A role do workflow só gerencia change sets
-da stack `schoolapi`; o CloudFormation os aplica com a própria role de execução (ADR-017). Configuração única, como
+da stack `schoolapi`; o CloudFormation os aplica com a própria role de execução. Configuração única, como
 administrador:
 
 ```bash
@@ -520,4 +520,4 @@ Depois crie o environment `prod` no GitHub (Settings → Environments) com um re
 de deploy para a `main`.
 
 > O AWS Academy Learner Lab não permite criar roles IAM nem provedores OIDC: faça o deploy manual com as credenciais
-> do lab e `--parameter-overrides Stage=prod AdminEmail=<admin-email> LambdaRoleArn=<ARN da LabRole>` (ADR-008).
+> do lab e `--parameter-overrides Stage=prod AdminEmail=<admin-email> LambdaRoleArn=<ARN da LabRole>`.
