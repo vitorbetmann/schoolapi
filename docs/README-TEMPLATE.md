@@ -24,7 +24,7 @@ Only sections the assignment asks for. Don't add others (ADR-012).
 | # | English | Português | Brief requirement it covers |
 |---|---|---|---|
 | 1 | English Description (what it is, which challenge) | Descrição em Português | — (intro) |
-| 2 | Demo video | Vídeo de demonstração | Deliverable: video (the group adds the link) |
+| 2 | Demo video | Vídeo de demonstração | Deliverable: video (link added after recording) |
 | 3 | Cloud model | Modelo de cloud | "Explicação do modelo de cloud escolhido" |
 | 4 | Architecture (Mermaid diagram, components, data model) | Arquitetura | "Arquitetura da solução", "componentes envolvidos" |
 | 5 | Serverless functions (responsibility, trigger, input/output, permissions) | Funções serverless | "Documentação das funções criadas" |

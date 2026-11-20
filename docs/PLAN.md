@@ -8,7 +8,7 @@ Each step is small enough for one Claude Code session. Do them in order.
 ---
 
 ## Step 0 — Accounts and local tools (manual, ~1h)
-**Goal:** everyone in the group can build locally and one person can deploy.
+**Goal:** the project builds locally and can be deployed.
 - Install JDK 21, Maven 3.9+, Docker, AWS CLI v2, AWS SAM CLI, Git.
 - AWS account: enable MFA on root, create an IAM Identity Center user (or IAM user) for
   each member. Never use root keys.
@@ -167,6 +167,6 @@ Everything lives in `README.md`, so there are no separate docs to keep in sync.
   serverless functions, endpoint, security and access governance, monitoring, deploy instructions.
 - Javadoc on public use cases and gateways (rubric: "qualidade do código, com documentação").
 
-**Acceptance:** a person outside the group can deploy from either half of the README alone; both
+**Acceptance:** someone else can deploy from either half of the README alone; both
 halves have identical heading structure (`grep '^##' README.md` shows matching pairs).
 Rubric: `[DOC]` `[COD]` `[ARQ]` `[SEC]`

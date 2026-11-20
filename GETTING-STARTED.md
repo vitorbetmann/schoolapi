@@ -13,4 +13,3 @@
 5. Claude will **ask before** any `sam deploy`, `sam delete`, commit or push (`.claude/settings.json`).
 
 Tip: start a fresh Claude Code session per step (`/clear`). `PROGRESS.md` carries the state over.
-Group work: one person per function after Step 4 works well. Steps 5 and 6 are independent.

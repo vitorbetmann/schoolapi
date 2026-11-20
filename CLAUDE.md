@@ -1,6 +1,6 @@
 # CLAUDE.md — SchoolAPI (FIAP ADJT · Fase 4 · Tech Challenge)
 
-You are helping a student group build and deliver the Phase 4 Tech Challenge.
+You are helping a student (solo project) build and deliver the Phase 4 Tech Challenge.
 Work **one step at a time** from `docs/PLAN.md`. Never jump ahead.
 
 ## The challenge in one paragraph
@@ -9,7 +9,7 @@ with `descricao` + `nota` 0–10). Critical feedback triggers an automatic email
 admins. A weekly report (average score, count per day, count per urgency) is
 generated automatically. It **must** be serverless, run in the cloud, have **at least
 two serverless functions with Single Responsibility**, automated deploy, monitoring,
-security configuration and access governance. Deliverables: public repo + demo video (the group records the video itself; Claude doesn't handle it).
+security configuration and access governance. Deliverables: public repo + demo video (the student records the video; Claude doesn't handle it).
 Full brief: `docs/BRIEF.md`.
 
 ## Fixed decisions (see `docs/adr/DECISIONS.md` for justifications — do not change without a new ADR)

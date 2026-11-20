@@ -14,7 +14,7 @@ automatically about critical feedback, and a weekly report with the average scor
 
 ## Demo video
 
-_Link to be added by the group._
+_Link to be added._
 
 ## Cloud model
 
@@ -272,7 +272,7 @@ agendada.
 
 ## Vídeo de demonstração
 
-_Link a ser adicionado pelo grupo._
+_Link a ser adicionado._
 
 ## Modelo de cloud
 
